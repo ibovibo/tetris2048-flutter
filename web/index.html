@@ -1,0 +1,25 @@
+<script>
+  window._ac = null;
+
+  function initAudio() {
+    if (!window._ac) {
+      window._ac = new (window.AudioContext || window.webkitAudioContext)();
+    }
+  }
+
+  function playTone(freq, type, dur, vol) {
+    try {
+      initAudio();
+      if (window._ac.state === 'suspended') window._ac.resume();
+      var o = window._ac.createOscillator(), g = window._ac.createGain();
+      o.connect(g); g.connect(window._ac.destination);
+      o.type = type; o.frequency.value = freq;
+      g.gain.setValueAtTime(vol, window._ac.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.001, window._ac.currentTime + dur);
+      o.start(); o.stop(window._ac.currentTime + dur);
+    } catch (e) { console.log('Audio error:', e); }
+  }
+
+  document.addEventListener('click', initAudio, { once: true });
+  document.addEventListener('keydown', initAudio, { once: true });
+</script>
