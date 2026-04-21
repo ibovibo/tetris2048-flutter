@@ -197,9 +197,19 @@ class TetrisGame extends FlameGame with KeyboardEvents {
   void _rotate() {
     if (!gameActive || paused) return;
     final rot = currentPiece.rotated();
-    if      (_valid(rot.shape, rot.x,   rot.y)) { currentPiece = rot; }
-    else if (_valid(rot.shape, rot.x-1, rot.y)) { currentPiece = rot; currentPiece.x--; }
-    else if (_valid(rot.shape, rot.x+1, rot.y)) { currentPiece = rot; currentPiece.x++; }
+    // SRS-benzeri wall kick: merkez → sol → sağ → 2 sol → 2 sağ → zemin kick
+    const kicks = [
+      [0, 0], [-1, 0], [1, 0], [-2, 0], [2, 0],
+      [0, -1], [-1, -1], [1, -1],
+    ];
+    for (final k in kicks) {
+      if (_valid(rot.shape, rot.x + k[0], rot.y + k[1])) {
+        currentPiece = rot;
+        currentPiece.x += k[0];
+        currentPiece.y += k[1];
+        return;
+      }
+    }
   }
 
   void _hardDrop() {
@@ -811,7 +821,8 @@ class TetrisGame extends FlameGame with KeyboardEvents {
 
   void _drawMultiplierLines(Canvas canvas) {
     for (final ml in multiplierLines) {
-      final pulse = 0.5 + sin(animTime * 3 + ml.index * 0.5) * 0.5;
+      final pulse = 0.5 + sin(animTime * 4 + ml.index * 0.7) * 0.5;
+      final scanPos = (animTime * 0.9 + ml.index * 0.4) % 1.0;
       Color lc;
       switch (ml.mult) {
         case 16: lc = const Color(0xFFC87FFF); break;
@@ -822,11 +833,57 @@ class TetrisGame extends FlameGame with KeyboardEvents {
       final rect = ml.isRow
           ? Rect.fromLTWH(boardX, boardY+ml.index*kCell, kCols*kCell, kCell)
           : Rect.fromLTWH(boardX+ml.index*kCell, boardY, kCell, kRows*kCell);
-      canvas.drawRect(rect, Paint()..color = lc.withValues(alpha: 0.09*pulse));
-      canvas.drawRect(rect, Paint()..color = lc.withValues(alpha: 0.55*pulse)..style=PaintingStyle.stroke..strokeWidth=1.5);
-      final tp = TextPainter(text: TextSpan(text:'×${ml.mult}', style:TextStyle(fontFamily:'monospace',fontSize:10,fontWeight:FontWeight.bold,color:lc.withValues(alpha:0.9))), textDirection:TextDirection.ltr)..layout();
-      final tx = ml.isRow ? boardX+kCols*kCell-tp.width-4 : boardX+ml.index*kCell+(kCell-tp.width)/2;
-      final ty = ml.isRow ? boardY+ml.index*kCell+(kCell-tp.height)/2 : boardY+4;
+
+      // Ana dolgu
+      canvas.drawRect(rect, Paint()..color = lc.withValues(alpha: 0.13 * pulse));
+
+      // Dış glow kenarlık
+      canvas.drawRect(rect, Paint()
+        ..color = lc.withValues(alpha: 0.45 * pulse)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 3.0
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 7));
+
+      // Keskin iç kenarlık
+      canvas.drawRect(rect, Paint()
+        ..color = lc.withValues(alpha: 0.90 * pulse)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.5);
+
+      // Tarama ışığı efekti
+      if (ml.isRow) {
+        final scanX = boardX + scanPos * kCols * kCell;
+        canvas.drawRect(
+          Rect.fromLTWH(scanX - kCell * 0.5, boardY + ml.index * kCell, kCell, kCell),
+          Paint()
+            ..color = Colors.white.withValues(alpha: 0.28 * pulse)
+            ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 9),
+        );
+      } else {
+        final scanY = boardY + scanPos * kRows * kCell;
+        canvas.drawRect(
+          Rect.fromLTWH(boardX + ml.index * kCell, scanY - kCell * 0.5, kCell, kCell),
+          Paint()
+            ..color = Colors.white.withValues(alpha: 0.28 * pulse)
+            ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 9),
+        );
+      }
+
+      // Çarpan etiketi — glow'lu, belirgin
+      final tp = TextPainter(
+        text: TextSpan(text: '×${ml.mult}', style: TextStyle(
+          fontFamily: 'monospace', fontSize: 13, fontWeight: FontWeight.bold,
+          color: lc.withValues(alpha: 0.98),
+          shadows: [
+            Shadow(color: lc, blurRadius: 14),
+            Shadow(color: lc, blurRadius: 28),
+            Shadow(color: Colors.black.withValues(alpha: 0.9), blurRadius: 4, offset: const Offset(0, 2)),
+          ],
+        )),
+        textDirection: TextDirection.ltr,
+      )..layout();
+      final tx = ml.isRow ? boardX + kCols*kCell - tp.width - 6 : boardX + ml.index*kCell + (kCell - tp.width)/2;
+      final ty = ml.isRow ? boardY + ml.index*kCell + (kCell - tp.height)/2 : boardY + 6;
       tp.paint(canvas, Offset(tx, ty));
     }
   }
@@ -1068,30 +1125,69 @@ class TetrisGame extends FlameGame with KeyboardEvents {
 
   void _drawFrozenOverlayAt(Canvas canvas, double x, double y) {
     final t = animTime;
-    final pulse = 0.42 + sin(t * 2) * 0.06;
+    final pulse = 0.38 + sin(t * 2.0) * 0.10;
+    final sparkle = 0.5 + sin(t * 5.8) * 0.5;
 
-    // Buz tabakası
+    // Ana buz tabakası
     canvas.drawRect(Rect.fromLTWH(x+1, y+1, kCell-2, kCell-2),
-      Paint()..color = const Color(0xFF8CD2FF).withValues(alpha: pulse));
+      Paint()..color = const Color(0xFF6EC8FF).withValues(alpha: pulse * 0.75));
 
-    // Kristal parlaması sol üst
-    canvas.drawRect(Rect.fromLTWH(x+3, y+3, (kCell-2)*0.4, (kCell-2)*0.2),
-      Paint()..color = Colors.white.withValues(alpha: 0.32));
+    // İç açık katman
+    canvas.drawRRect(RRect.fromRectAndRadius(
+      Rect.fromLTWH(x+4, y+4, kCell-8, kCell-8), const Radius.circular(3)),
+      Paint()..color = const Color(0xFFB8ECFF).withValues(alpha: 0.20));
 
-    // Buz kenarlık nabzı
+    // Kar kristali — merkez + 6 kol (snowflake)
+    final cx = x + kCell / 2, cy = y + kCell / 2;
+    final armLen = kCell * 0.30;
+    final crystalAlpha = 0.60 + sin(t * 1.6) * 0.18;
+    final crystalPaint = Paint()
+      ..color = const Color(0xFFDCF8FF).withValues(alpha: crystalAlpha)
+      ..strokeWidth = 1.1
+      ..style = PaintingStyle.stroke;
+    final branchPaint = Paint()
+      ..color = const Color(0xFFDCF8FF).withValues(alpha: crystalAlpha * 0.75)
+      ..strokeWidth = 0.7
+      ..style = PaintingStyle.stroke;
+    for (int i = 0; i < 6; i++) {
+      final angle = (i * math.pi / 3) + t * 0.12;
+      final tipX = cx + cos(angle) * armLen;
+      final tipY = cy + sin(angle) * armLen;
+      canvas.drawLine(Offset(cx, cy), Offset(tipX, tipY), crystalPaint);
+      final branchLen = armLen * 0.38;
+      canvas.drawLine(Offset(tipX, tipY),
+        Offset(tipX + cos(angle + math.pi/3.5) * branchLen, tipY + sin(angle + math.pi/3.5) * branchLen),
+        branchPaint);
+      canvas.drawLine(Offset(tipX, tipY),
+        Offset(tipX + cos(angle - math.pi/3.5) * branchLen, tipY + sin(angle - math.pi/3.5) * branchLen),
+        branchPaint);
+    }
+
+    // Merkez yıldız noktası
+    canvas.drawCircle(Offset(cx, cy), 1.8,
+      Paint()..color = Colors.white.withValues(alpha: 0.85));
+
+    // Köşe sparkle noktaları
+    final corners = [
+      Offset(x+5, y+5), Offset(x+kCell-5, y+5),
+      Offset(x+5, y+kCell-5), Offset(x+kCell-5, y+kCell-5),
+    ];
+    for (int i = 0; i < corners.length; i++) {
+      final sp = sparkle * (0.55 + sin(t * 3.8 + i * 1.3) * 0.45);
+      canvas.drawCircle(corners[i], 2.2,
+        Paint()..color = Colors.white.withValues(alpha: sp)
+               ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3));
+    }
+
+    // Sol üst cam yansıması
+    canvas.drawRect(Rect.fromLTWH(x+4, y+4, (kCell-6)*0.40, (kCell-6)*0.16),
+      Paint()..color = Colors.white.withValues(alpha: 0.40));
+
+    // Dış buz kenarlık glow
     canvas.drawRect(Rect.fromLTWH(x+1, y+1, kCell-2, kCell-2),
-      Paint()..color = const Color(0xFFA0E6FF).withValues(alpha: 0.8 + sin(t * 2) * 0.2)
-             ..style = PaintingStyle.stroke..strokeWidth = 2
-             ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4));
-
-    // Çatlak çizgileri
-    final crackPaint = Paint()
-      ..color = const Color(0xFFDCF5FF).withValues(alpha: 0.55 + sin(t) * 0.15)
-      ..strokeWidth = 0.9;
-    canvas.drawLine(Offset(x+5, y+4), Offset(x+kCell/2, y+kCell/2), crackPaint);
-    canvas.drawLine(Offset(x+kCell/2, y+kCell/2), Offset(x+kCell-6, y+kCell-5), crackPaint);
-    canvas.drawLine(Offset(x+kCell-5, y+5), Offset(x+kCell/2-2, y+kCell/2+2), crackPaint);
-    canvas.drawLine(Offset(x+kCell/2-2, y+kCell/2+2), Offset(x+4, y+kCell-5), crackPaint);
+      Paint()..color = const Color(0xFF90DDFF).withValues(alpha: 0.85 + sin(t * 2.4) * 0.15)
+             ..style = PaintingStyle.stroke..strokeWidth = 2.0
+             ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 5));
   }
 
   void _drawTile(Canvas canvas, double x, double y, int val, double alpha, {bool ghost=false}) {
@@ -1462,6 +1558,22 @@ class TetrisGame extends FlameGame with KeyboardEvents {
     tp.paint(canvas, Offset(cx-tp.width/2, cy-tp.height/2));
   }
 
+  void _drawMenuButton(Canvas canvas, double cx, double cy, double w, double h, String label, Color color) {
+    final pulse = 0.65 + sin(animTime * 3.2) * 0.35;
+    final rect = RRect.fromRectAndRadius(
+      Rect.fromCenter(center: Offset(cx, cy), width: w, height: h),
+      const Radius.circular(9));
+    canvas.drawRRect(rect, Paint()..color = color.withValues(alpha: 0.15 * pulse));
+    canvas.drawRRect(rect, Paint()
+      ..color = color.withValues(alpha: 0.50 * pulse)
+      ..style = PaintingStyle.stroke..strokeWidth = 2.0
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 5));
+    canvas.drawRRect(rect, Paint()
+      ..color = color.withValues(alpha: 0.88)
+      ..style = PaintingStyle.stroke..strokeWidth = 1.2);
+    _drawTextCentered(canvas, label, cx, cy, 11, color, bold: true);
+  }
+
   void _drawOverlays(Canvas canvas) {
     final bw = kCols*kCell, bh = kRows*kCell;
 
@@ -1497,20 +1609,85 @@ class TetrisGame extends FlameGame with KeyboardEvents {
 
     // Pause
     if (paused && gameActive) {
-      canvas.drawRect(Rect.fromLTWH(boardX,boardY,bw,bh), Paint()..color=Colors.black.withValues(alpha:0.82));
-      _drawTextCentered(canvas,'⏸ DURAKLATILDI',boardX+bw/2,boardY+bh/2-44,20,const Color(0xFFC87FFF),bold:true);
-      _drawTextCentered(canvas,'[ESC] DEVAM ET',boardX+bw/2,boardY+bh/2-6,13,const Color(0xFF5CF5E0));
-      _drawTextCentered(canvas,'[M] ANA MENÜ',boardX+bw/2,boardY+bh/2+22,13,const Color(0xFFFF8800));
+      canvas.drawRect(Rect.fromLTWH(boardX, boardY, bw, bh),
+        Paint()..color = Colors.black.withValues(alpha: 0.85));
+      const pw = 196.0, ph = 186.0;
+      final pcx = boardX + bw / 2;
+      final prx = pcx - pw / 2, pry = boardY + bh / 2 - ph / 2;
+      // Panel dış glow
+      canvas.drawRRect(RRect.fromRectAndRadius(
+        Rect.fromLTWH(prx - 10, pry - 10, pw + 20, ph + 20), const Radius.circular(20)),
+        Paint()..color = const Color(0xFFC87FFF).withValues(alpha: 0.15)
+               ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 22));
+      // Panel
+      canvas.drawRRect(RRect.fromRectAndRadius(
+        Rect.fromLTWH(prx, pry, pw, ph), const Radius.circular(14)),
+        Paint()..color = const Color(0xFF0C0820));
+      canvas.drawRRect(RRect.fromRectAndRadius(
+        Rect.fromLTWH(prx, pry, pw, ph), const Radius.circular(14)),
+        Paint()..color = const Color(0xFFC87FFF).withValues(alpha: 0.55)
+               ..style = PaintingStyle.stroke..strokeWidth = 2.0);
+      // Başlık
+      _drawTextCentered(canvas, '⏸  DURAKLATILDI', pcx, pry + 30, 17,
+        const Color(0xFFC87FFF), bold: true);
+      // Ayırıcı
+      canvas.drawLine(Offset(prx + 14, pry + 52), Offset(prx + pw - 14, pry + 52),
+        Paint()..color = const Color(0xFFC87FFF).withValues(alpha: 0.28)..strokeWidth = 1);
+      // Butonlar
+      _drawMenuButton(canvas, pcx, pry + 90, 162, 36, '[ESC]  DEVAM ET', const Color(0xFF5CF5E0));
+      _drawMenuButton(canvas, pcx, pry + 140, 162, 36, '[M]  ANA MENÜ', const Color(0xFFFF8800));
     }
 
     // Game over
     if (!gameActive) {
-      canvas.drawRect(Rect.fromLTWH(boardX,boardY,bw,bh), Paint()..color=Colors.black.withValues(alpha:0.90));
-      _drawTextCentered(canvas,'BİTTİ',boardX+bw/2,boardY+bh/2-60,36,const Color(0xFFFF3366),bold:true);
-      _drawTextCentered(canvas,'SKOR: $score',boardX+bw/2,boardY+bh/2-14,20,Colors.white);
-      _drawTextCentered(canvas,'EN YÜKSEK: $best',boardX+bw/2,boardY+bh/2+18,14,const Color(0xFFF5E05C));
-      _drawTextCentered(canvas,'EN İYİ COMBO: x$bestCombo',boardX+bw/2,boardY+bh/2+42,12,const Color(0xFFFFD700));
-      _drawTextCentered(canvas,'[R] TEKRAR OYNA',boardX+bw/2,boardY+bh/2+68,14,const Color(0xFF5CF5E0));
+      canvas.drawRect(Rect.fromLTWH(boardX, boardY, bw, bh),
+        Paint()..color = Colors.black.withValues(alpha: 0.92));
+      const pw = 216.0, ph = 248.0;
+      final gcx = boardX + bw / 2;
+      final grx = gcx - pw / 2, gry = boardY + bh / 2 - ph / 2 - 8;
+      // Panel dış glow
+      canvas.drawRRect(RRect.fromRectAndRadius(
+        Rect.fromLTWH(grx - 10, gry - 10, pw + 20, ph + 20), const Radius.circular(22)),
+        Paint()..color = const Color(0xFFFF3366).withValues(alpha: 0.14)
+               ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 26));
+      // Panel
+      canvas.drawRRect(RRect.fromRectAndRadius(
+        Rect.fromLTWH(grx, gry, pw, ph), const Radius.circular(16)),
+        Paint()..color = const Color(0xFF0A0618));
+      canvas.drawRRect(RRect.fromRectAndRadius(
+        Rect.fromLTWH(grx, gry, pw, ph), const Radius.circular(16)),
+        Paint()..color = const Color(0xFFFF3366).withValues(alpha: 0.60)
+               ..style = PaintingStyle.stroke..strokeWidth = 2.0);
+      // Başlık — nabzeden
+      final gPulse = 0.65 + sin(animTime * 2.8) * 0.35;
+      _drawTextCentered(canvas, 'OYUN BİTTİ', gcx, gry + 30, 20,
+        const Color(0xFFFF3366).withValues(alpha: gPulse), bold: true);
+      // Ayırıcı
+      canvas.drawLine(Offset(grx + 16, gry + 52), Offset(grx + pw - 16, gry + 52),
+        Paint()..color = const Color(0xFFFF3366).withValues(alpha: 0.30)..strokeWidth = 1);
+      // Skor
+      _drawTextCentered(canvas, 'SKOR', gcx, gry + 72, 9, const Color(0xFF5CF5E0));
+      _drawTextCentered(canvas, displayScore.toInt().toString(), gcx, gry + 96, 26,
+        Colors.white, bold: true);
+      // En iyi skor karşılaştırması
+      final isNewBest = score > 0 && score >= best;
+      if (isNewBest) {
+        final nbPulse = 0.75 + sin(animTime * 5.0) * 0.25;
+        _drawTextCentered(canvas, '★  YENİ REKOR!  ★', gcx, gry + 120, 10,
+          const Color(0xFFFFD700).withValues(alpha: nbPulse), bold: true);
+      } else {
+        _drawTextCentered(canvas, 'EN YÜKSEK: $best', gcx, gry + 120, 10,
+          const Color(0xFFF5E05C));
+      }
+      // Ayırıcı
+      canvas.drawLine(Offset(grx + 16, gry + 138), Offset(grx + pw - 16, gry + 138),
+        Paint()..color = Colors.white.withValues(alpha: 0.10)..strokeWidth = 1);
+      // Combo
+      _drawTextCentered(canvas, 'EN İYİ COMBO: x$bestCombo', gcx, gry + 158, 10,
+        const Color(0xFFFFD700));
+      // Tekrar oyna butonu
+      _drawMenuButton(canvas, gcx, gry + 208, 178, 36, '[R]  TEKRAR OYNA',
+        const Color(0xFF5CF5E0));
     }
   }
 }
