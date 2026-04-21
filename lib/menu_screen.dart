@@ -117,9 +117,12 @@ class _MenuScreenState extends State<MenuScreen> with SingleTickerProviderStateM
 
   Widget _buildPlayButton(BuildContext context) {
     return GestureDetector(
-      onTap: () => Navigator.of(context).push(
-        MaterialPageRoute(builder: (_) => const GameScreen()),
-      ),
+      onTap: () {
+        SoundManager.stopMusic();
+        Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => const GameScreen()),
+        );
+      },
       child: AnimatedBuilder(
         animation: _controller,
         builder: (_, __) => Transform.scale(

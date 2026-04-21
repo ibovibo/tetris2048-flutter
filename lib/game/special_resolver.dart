@@ -12,6 +12,7 @@ class SpecialResolver {
   final void Function()? playBombSfx;
   final void Function()? playMegaBombSfx;
   final void Function()? playIceJokerSfx;
+  final void Function()? playStarSfx;
 
   SpecialResolver({
     required this.board,
@@ -23,6 +24,7 @@ class SpecialResolver {
     this.playBombSfx,
     this.playMegaBombSfx,
     this.playIceJokerSfx,
+    this.playStarSfx,
   });
 
   void resolveAll() {
@@ -204,6 +206,7 @@ class SpecialResolver {
 
         // Tüm targetVal'ları sil ve say
         int count = 0;
+        playStarSfx?.call();
         for (int rr = 0; rr < kRows; rr++) {
           for (int cc = 0; cc < kCols; cc++) {
             if (board.get(rr, cc) == targetVal) {

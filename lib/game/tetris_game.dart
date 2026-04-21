@@ -1,4 +1,6 @@
 import 'dart:math';
+import 'dart:math' as math;
+import 'dart:async';
 import 'package:flame/game.dart';
 import 'package:flame/input.dart';
 import 'package:flutter/foundation.dart';
@@ -61,6 +63,7 @@ class TetrisGame extends FlameGame with KeyboardEvents {
   int seasonTurnsLeft = 0;
   double _seasonBombTimer = 0; // bomba mevsimi için
   int _pendingSeasonIdx = 0;
+  bool _mysteryActive = false;
 
   double boardX = 0;
   double boardY = 0;
@@ -103,6 +106,7 @@ class TetrisGame extends FlameGame with KeyboardEvents {
 
   void _initGame() {
     board.reset();
+    SoundManager.stopSeasonMusic();
     score = 0; displayScore = 0;
     level = 1; combo = 1;
     streak = 0; streakTimer = 0;
@@ -112,6 +116,8 @@ class TetrisGame extends FlameGame with KeyboardEvents {
     comboHeat = 0; pieceVisualY = 0; screenShake = 0;
     seenMilestones = {}; maxTile = 0;
     activeSeason = null; seasonTurnsLeft = 0; _seasonBombTimer = 0;
+    _mysteryActive = false;
+    particles.seasonBg.setSeason(null);
     multiplierLines.clear();
     popCells.clear();
     _pendingDrops.clear();
@@ -122,6 +128,7 @@ class TetrisGame extends FlameGame with KeyboardEvents {
     nextQueue.add(PieceGenerator.generate(score, moveCount, season: activeSeason));
     nextQueue.add(PieceGenerator.generate(score, moveCount, season: activeSeason));
     pieceVisualY = currentPiece.y.toDouble();
+    SoundManager.playGameMusic();
     gameActive = true;
   }
 
@@ -159,7 +166,13 @@ class TetrisGame extends FlameGame with KeyboardEvents {
       SoundManager.resumeMusic();
     }
   }
-  void goToMenu() { gameActive = false; paused = true; onPause?.call(); }
+  void goToMenu() {
+    SoundManager.stopSeasonMusic();
+    SoundManager.stopMusic();
+    gameActive = false;
+    paused = true;
+    onPause?.call();
+  }
 
   bool _valid(List<List<int>> shape, int ox, int oy) {
     for (int r = 0; r < shape.length; r++) {
@@ -228,7 +241,7 @@ class TetrisGame extends FlameGame with KeyboardEvents {
     if (seasonTurnsLeft > 0) {
       seasonTurnsLeft--;
       if (seasonTurnsLeft == 0) {
-        _endSeason();
+        unawaited(_endSeason());
       }
     }
 
@@ -265,6 +278,7 @@ class TetrisGame extends FlameGame with KeyboardEvents {
       playBombSfx: () => SoundManager.bomb(),
       playMegaBombSfx: () => SoundManager.megaBomb(),
       playIceJokerSfx: () => SoundManager.iceJoker(),
+      playStarSfx: () => SoundManager.starJoker(),
     ).resolveAll();
 
     // 32768 özel parçalardan (Joker/X2 vb.) oluştuysa da patlamayı tetikle.
@@ -430,9 +444,10 @@ class TetrisGame extends FlameGame with KeyboardEvents {
   }
 
   void _triggerMaxExplosion() {
-    // Mevcut mevsimi hemen bitir
-    if (activeSeason != null) _endSeason();
     SoundManager.maxExplosion32k();
+    SoundManager.pauseMusic();
+    // Mevcut mevsimi hemen bitir
+    if (activeSeason != null) unawaited(_endSeason());
 
     // Boardda 32768+ olan hücreyi bul
     for (int r = 0; r < kRows; r++) {
@@ -469,13 +484,27 @@ class TetrisGame extends FlameGame with KeyboardEvents {
     screenShake = 1.2;
   }
 
-  void _startRandomSeason() {
+  Future<void> _startRandomSeason() async {
+    debugPrint('=== _startRandomSeason çağrıldı: $_pendingSeasonIdx ===');
     activeSeason = kSeasons[_pendingSeasonIdx].key;
+    debugPrint('=== activeSeason: $activeSeason ===');
+    debugPrint('_startRandomSeason: activeSeason=$activeSeason, pendingIdx=$_pendingSeasonIdx');
     seasonTurnsLeft = 10;
     _seasonBombTimer = 2.0;
 
     if (activeSeason == 'speed') {
       speed = (speed / 2).clamp(50, 270);
+    }
+
+    // Mevsim sesini başlat
+    await SoundManager.playSeasonMusic(activeSeason!);
+    debugPrint('=== playSeasonMusic çağrıldı ===');
+
+    particles.seasonBg.setSeason(activeSeason);
+
+    if (activeSeason == 'mystery') {
+      // Tum board'daki bloklari gizle
+      _mysteryActive = true;
     }
 
     // Kuyruktaki eski parçaları yeni mevsime göre yenile
@@ -490,7 +519,8 @@ class TetrisGame extends FlameGame with KeyboardEvents {
     );
   }
 
-  void _endSeason() {
+  Future<void> _endSeason() async {
+    final season = activeSeason;
     if (activeSeason == 'speed') {
       // Hızı level'a göre yeniden hesapla
       final baseSpeed = 540.0, fastThreshold = 350.0;
@@ -502,7 +532,18 @@ class TetrisGame extends FlameGame with KeyboardEvents {
       }
       speed = speed.clamp(100, 540);
     }
+
+    // BGM'i normale döndür, mevsim müziğini durdur
+    SoundManager.clearSeasonMusicFlag();
+    await SoundManager.stopSeasonMusic();
+    // Eğer 32k animasyonu devam ediyorsa oyun müziğini başlatma
+    if (_maxExplosion == null) {
+      SoundManager.resumeMusic();
+    }
+
+    if (season == 'mystery') _mysteryActive = false;
     particles.addNotification('Mevsim bitti!', const Color(0xFF5CF5E0));
+    particles.seasonBg.setSeason(null);
     activeSeason = null;
   }
 
@@ -580,9 +621,10 @@ class TetrisGame extends FlameGame with KeyboardEvents {
 
   Future<void> _endGame() async {
     gameActive = false;
-    await SoundManager.stopMusic();
+    SoundManager.stopSeasonMusic();
+    SoundManager.stopMusic();
     await Future<void>.delayed(const Duration(milliseconds: 50));
-    await SoundManager.gameOver();
+    SoundManager.gameOver();
     if (score > best) { best = score; _saveBest(); }
   }
 
@@ -594,6 +636,7 @@ class TetrisGame extends FlameGame with KeyboardEvents {
     comboHeat = (comboHeat - dt*0.006).clamp(0, 1);
     screenShake = (screenShake - dt*2.5).clamp(0, 1);
     particles.update(dt);
+    particles.seasonBg.update(dt, boardX, boardY, kCols*kCell, kRows*kCell);
 
     // Bomba mevsimi — her 2-3 saniyede rastgele bomba
     if (activeSeason == 'bomb' && gameActive && !paused) {
@@ -636,6 +679,7 @@ class TetrisGame extends FlameGame with KeyboardEvents {
           playBombSfx: () => SoundManager.bomb(),
           playMegaBombSfx: () => SoundManager.megaBomb(),
           playIceJokerSfx: () => SoundManager.iceJoker(),
+          playStarSfx: () => SoundManager.starJoker(),
         ).resolveAll();
         board.applyGravity(frozenSet);
         final events = board.resolveMerges(frozenSet, frozenCols, multiplierLines);
@@ -665,8 +709,7 @@ class TetrisGame extends FlameGame with KeyboardEvents {
     _maxExplosion?.update(dt);
     if (_maxExplosion?.done == true) {
       _maxExplosion = null;
-      // Animasyon bitti — şimdi mevsimi başlat
-      _startRandomSeason();
+      unawaited(_startRandomSeason());
     }
 
     // Pop cells güncelle
@@ -702,47 +745,73 @@ class TetrisGame extends FlameGame with KeyboardEvents {
     }
   }
 
-  @override 
+  @override
   void render(Canvas canvas) {
     super.render(canvas);
 
-    if (screenShake > 0) {
-      final dx = (_rng.nextDouble()-0.5)*screenShake*14;
-      final dy = (_rng.nextDouble()-0.5)*screenShake*14;
-      canvas.save();
-      canvas.translate(dx, dy);
+    final shake = screenShake * 6;
+    canvas.save();
+    if (shake > 0.01) {
+      canvas.translate(
+        (_rng.nextDouble() - 0.5) * shake,
+        (_rng.nextDouble() - 0.5) * shake,
+      );
     }
 
-    _drawBackground(canvas);
+    // DEBUG
+    try {
+      _drawBackground(canvas);
+    } catch (e) {
+      debugPrint('_drawBackground HATA: $e');
+    }
+
     _drawMultiplierLines(canvas);
     _drawBoard(canvas);
     _drawGhost(canvas);
     _drawPiece(canvas);
+    particles.render(canvas, boardX, boardY, screenW: size.x, screenH: size.y);
     _drawUI(canvas);
     _drawOverlays(canvas);
-    particles.render(canvas, boardX, boardY, screenW: size.x, screenH: size.y);
-
-    if (screenShake > 0) canvas.restore();
-
-    // Süper patlama — her şeyin üstünde
     _maxExplosion?.render(canvas, size.x, size.y);
+
+    canvas.restore();
   }
 
   void _drawBackground(Canvas canvas) {
     final s = size;
-    final gridPaint = Paint()..color = const Color(0xFF1A1040).withValues(alpha: 0.35)
-      ..style = PaintingStyle.stroke..strokeWidth = 0.5;
+
+    // Duz koyu arkaplan
+    canvas.drawRect(
+      Rect.fromLTWH(0, 0, s.x, s.y),
+      Paint()..color = const Color(0xFF04020E),
+    );
+
+    // Izgara
+    final gridPaint = Paint()
+      ..color = const Color(0xFF2A1560).withValues(alpha: 0.4)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 0.5;
     for (double x = 0; x < s.x; x += kCell) {
-      canvas.drawLine(Offset(x,0), Offset(x,s.y), gridPaint);
+      canvas.drawLine(Offset(x, 0), Offset(x, s.y), gridPaint);
     }
     for (double y = 0; y < s.y; y += kCell) {
-      canvas.drawLine(Offset(0,y), Offset(s.x,y), gridPaint);
+      canvas.drawLine(Offset(0, y), Offset(s.x, y), gridPaint);
     }
+
+    // Ambient glow
+    final pulse = 0.6 + math.sin(animTime * 1.2) * 0.4;
+    canvas.drawCircle(
+      Offset(s.x / 2, s.y / 2),
+      s.y * 0.7,
+      Paint()
+        ..color = const Color(0xFF1A0840).withValues(alpha: 0.3 * pulse)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 80),
+    );
   }
 
   void _drawMultiplierLines(Canvas canvas) {
     for (final ml in multiplierLines) {
-      final pulse = 0.5 + sin(animTime*3 + ml.index*0.5)*0.5;
+      final pulse = 0.5 + sin(animTime * 3 + ml.index * 0.5) * 0.5;
       Color lc;
       switch (ml.mult) {
         case 16: lc = const Color(0xFFC87FFF); break;
@@ -762,9 +831,51 @@ class TetrisGame extends FlameGame with KeyboardEvents {
     }
   }
 
+  Color _getBoardBgColor() {
+    // Tehlike — üst satırlarda blok varsa kırmızıya çalar
+    int dangerCount = 0;
+    for (int r = 0; r < 4; r++) {
+      for (int c = 0; c < kCols; c++) {
+        if (board.get(r, c) != 0) dangerCount++;
+      }
+    }
+    final dangerLevel = (dangerCount / 8).clamp(0.0, 1.0);
+    final pulse = 0.5 + math.sin(dangerPulse * 3) * 0.5;
+
+    // Temel renk — skor arttıkça mor→mavi→yeşil
+    final scoreProgress = (score / 500000).clamp(0.0, 1.0);
+    final baseColor = Color.lerp(
+      const Color(0xFF060418),
+      const Color(0xFF041820),
+      scoreProgress,
+    )!;
+
+    // Combo ısısı — kırmızımsı kenarlık
+    if (comboHeat > 0.2) {
+      final heat = comboHeat * 0.08;
+      return Color.lerp(baseColor, const Color(0xFF1A0410), heat)!;
+    }
+
+    // Tehlike — kırmızı yanıp söner
+    if (dangerLevel > 0) {
+      final dangerColor = Color.lerp(
+        baseColor,
+        const Color(0xFF1A0308),
+        dangerLevel * pulse * 0.7,
+      )!;
+      return dangerColor;
+    }
+
+    return baseColor;
+  }
+
   void _drawBoard(Canvas canvas) {
-    canvas.drawRect(Rect.fromLTWH(boardX, boardY, kCols*kCell, kRows*kCell),
-      Paint()..color = const Color(0xFF060418));
+    // Board arkaplanı — dinamik renk
+    final bgColor = _getBoardBgColor();
+    canvas.drawRect(
+      Rect.fromLTWH(boardX, boardY, kCols * kCell, kRows * kCell),
+      Paint()..color = bgColor,
+    );
 
     final gridPaint = Paint()..color = Colors.white.withValues(alpha:0.05)..style=PaintingStyle.stroke..strokeWidth=0.7;
     for (int c = 1; c < kCols; c++) {
@@ -772,6 +883,33 @@ class TetrisGame extends FlameGame with KeyboardEvents {
     }
     for (int r = 1; r < kRows; r++) {
       canvas.drawLine(Offset(boardX,boardY+r*kCell), Offset(boardX+kCols*kCell,boardY+r*kCell), gridPaint);
+    }
+
+    // Joker/combo ambient — board içi hafif renk dalgası
+    if (comboHeat > 0) {
+      final pulse = 0.5 + math.sin(animTime * 4) * 0.5;
+      final comboCol = combo >= 8
+          ? const Color(0xFFFF3366)
+          : combo >= 4
+              ? const Color(0xFFFF8800)
+              : const Color(0xFFC87FFF);
+      canvas.drawRect(
+        Rect.fromLTWH(boardX, boardY, kCols * kCell, kRows * kCell),
+        Paint()..color = comboCol.withValues(alpha: comboHeat * 0.06 * pulse),
+      );
+    }
+
+    // Mevsim rengi — board içini hafifçe boyar
+    if (activeSeason != null) {
+      final si = kSeasons.firstWhere(
+        (s) => s.key == activeSeason,
+        orElse: () => kSeasons[0],
+      );
+      final pulse = 0.4 + math.sin(animTime * 2) * 0.3;
+      canvas.drawRect(
+        Rect.fromLTWH(boardX, boardY, kCols * kCell, kRows * kCell),
+        Paint()..color = si.color.withValues(alpha: 0.04 * pulse),
+      );
     }
 
     // Hücreler + frozen overlay + max tile glow + pop cells
@@ -786,7 +924,7 @@ class TetrisGame extends FlameGame with KeyboardEvents {
         }
 
         // Max tile glow
-        if (v == maxTile && maxTile >= 8) _drawMaxTileGlow(canvas, c, r, v);
+        if (v == maxTile && maxTile >= 8 && !_mysteryActive) _drawMaxTileGlow(canvas, c, r, v);
 
         // Pop cell animasyonu
         final pop = popCells.where((p) => p.c == c && p.r == r).firstOrNull;
@@ -846,6 +984,24 @@ class TetrisGame extends FlameGame with KeyboardEvents {
       canvas.restore();
     }
 
+    // Gizem mevsimi - board uzerine statik gurultu
+    if (_mysteryActive) {
+      final rng2 = math.Random((animTime * 6).toInt());
+      for (int i = 0; i < 120; i++) {
+        final nx = boardX + rng2.nextDouble() * kCols * kCell;
+        final ny = boardY + rng2.nextDouble() * kRows * kCell;
+        canvas.drawRect(Rect.fromLTWH(nx, ny, 1.5 + rng2.nextDouble()*3, 1.5),
+          Paint()..color = Colors.white.withValues(alpha: rng2.nextDouble() * 0.12));
+      }
+      // Yatay bozulma cizgileri
+      final lineCount = rng2.nextInt(3);
+      for (int i = 0; i < lineCount; i++) {
+        final ly = boardY + rng2.nextDouble() * kRows * kCell;
+        canvas.drawRect(Rect.fromLTWH(boardX, ly, kCols*kCell, 2),
+          Paint()..color = Colors.white.withValues(alpha: 0.08 + rng2.nextDouble()*0.12));
+      }
+    }
+
     // Board kenarlık
     final borderCol = comboHeat > 0.4 ? const Color(0xFFFF4488) : const Color(0xFFAA44FF);
     canvas.drawRect(Rect.fromLTWH(boardX, boardY, kCols*kCell, kRows*kCell),
@@ -856,6 +1012,7 @@ class TetrisGame extends FlameGame with KeyboardEvents {
 
   // Max tile etrafında dönen parçacıklar + halo
   void _drawMaxTileGlow(Canvas canvas, int c, int r, int val) {
+    if (_mysteryActive) return; // gizem mevsiminde max tile glow yok
     final cx = boardX + c*kCell + kCell/2;
     final cy = boardY + r*kCell + kCell/2;
     final color = tileColor(val);
@@ -949,6 +1106,62 @@ class TetrisGame extends FlameGame with KeyboardEvents {
       return;
     }
 
+    if (_mysteryActive && val != 0 && !isObstacle(val)) {
+      const pad = 1.5;
+      final rect = RRect.fromRectAndRadius(
+        Rect.fromLTWH(x+pad, y+pad, kCell-pad*2, kCell-pad*2),
+        const Radius.circular(8));
+
+      // Nabzeden gri - canli ama gri
+      final pulse = 0.7 + math.sin(animTime * 2.5 + x * 0.1 + y * 0.08) * 0.3;
+
+      // Dis glow - beyazimsi
+      canvas.drawRRect(RRect.fromRectAndRadius(
+        Rect.fromLTWH(x+pad-3, y+pad-3, kCell-pad*2+6, kCell-pad*2+6),
+        const Radius.circular(10)),
+        Paint()..color = Colors.white.withValues(alpha: 0.15 * pulse * alpha)
+               ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6));
+
+      // Ana dolgu - koyu gri, canli
+      canvas.drawRRect(rect,
+        Paint()..color = const Color(0xFF2A2A3A).withValues(alpha: 0.92 * alpha));
+
+      // Ust cam serit
+      canvas.drawRRect(RRect.fromRectAndRadius(
+        Rect.fromLTWH(x+pad+2, y+pad+2, kCell-pad*2-4, (kCell-pad*2)*0.42),
+        const Radius.circular(6)),
+        Paint()..color = Colors.white.withValues(alpha: 0.22 * alpha));
+
+      // Nabzeden kenarlik
+      canvas.drawRRect(rect,
+        Paint()..color = Colors.white.withValues(alpha: 0.4 * pulse * alpha)
+               ..style = PaintingStyle.stroke..strokeWidth = 1.8);
+
+      // Ikinci dis kenarlik - mor tonu
+      canvas.drawRRect(RRect.fromRectAndRadius(
+        Rect.fromLTWH(x+pad-2, y+pad-2, kCell-pad*2+4, kCell-pad*2+4),
+        const Radius.circular(9)),
+        Paint()..color = const Color(0xFF8888CC).withValues(alpha: 0.25 * pulse * alpha)
+               ..style = PaintingStyle.stroke..strokeWidth = 1);
+
+      // Soru isareti - buyuk, parlak
+      final tp = TextPainter(
+        text: TextSpan(text: '?', style: TextStyle(
+          fontFamily: 'monospace', fontSize: 22,
+          fontWeight: FontWeight.bold,
+          color: Colors.white.withValues(alpha: (0.7 + pulse * 0.3) * alpha),
+          shadows: [
+            Shadow(color: Colors.white.withValues(alpha: 0.6 * pulse), blurRadius: 12),
+            Shadow(color: const Color(0xFF8888FF).withValues(alpha: 0.4), blurRadius: 20),
+            Shadow(color: Colors.black.withValues(alpha: 0.9), blurRadius: 4, offset: const Offset(0,2)),
+          ],
+        )),
+        textDirection: TextDirection.ltr,
+      )..layout();
+      tp.paint(canvas, Offset(x+kCell/2-tp.width/2, y+kCell/2-tp.height/2+1));
+      return;
+    }
+
     // Dış neon glow
     canvas.drawRRect(RRect.fromRectAndRadius(
       Rect.fromLTWH(x+pad-3, y+pad-3, kCell-pad*2+6, kCell-pad*2+6), const Radius.circular(10)),
@@ -1008,6 +1221,7 @@ class TetrisGame extends FlameGame with KeyboardEvents {
   }
 
   void _drawGhost(Canvas canvas) {
+    if (_mysteryActive) return; // gizem mevsiminde ghost yok
     if (!gameActive) return;
     int gy = currentPiece.y;
     while (_valid(currentPiece.shape, currentPiece.x, gy+1)) {
@@ -1096,10 +1310,57 @@ class TetrisGame extends FlameGame with KeyboardEvents {
 
     _drawPanel(canvas, px, boardY+320, 112, 88);
     _drawText(canvas, 'SONRAKİ', px+8, boardY+328, 8, const Color(0xFF5CF5E0));
-    for (int r = 0; r < nextPiece.shape.length; r++) {
-      for (int c = 0; c < nextPiece.shape[r].length; c++) {
-        final v = nextPiece.shape[r][c];
-        if (v != 0) _drawMiniTile(canvas, px+8+c*20, boardY+343+r*20, v);
+
+    if (_mysteryActive) {
+      // NO SIGNAL efekti
+      final rng2 = math.Random((animTime * 8).toInt()); // bozulma icin seed
+
+      // Statik gurultu - gri piksel
+      for (int i = 0; i < 80; i++) {
+        final nx = px + rng2.nextDouble() * 112;
+        final ny = boardY + 338 + rng2.nextDouble() * 60;
+        final gs = rng2.nextDouble() * 0.6;
+        canvas.drawRect(Rect.fromLTWH(nx, ny, 2 + rng2.nextDouble()*3, 1.5),
+          Paint()..color = Colors.white.withValues(alpha: gs));
+      }
+
+      // Yatay bozulma cizgileri
+      final lineCount = rng2.nextInt(4);
+      for (int i = 0; i < lineCount; i++) {
+        final ly = boardY + 338 + rng2.nextDouble() * 60;
+        final lw = 20 + rng2.nextDouble() * 80;
+        final lx = px + rng2.nextDouble() * (112 - lw);
+        canvas.drawRect(Rect.fromLTWH(lx, ly, lw, 2),
+          Paint()..color = Colors.white.withValues(alpha: 0.3 + rng2.nextDouble()*0.4));
+      }
+
+      // Kirik cam cizgileri
+      final crackPaint = Paint()
+        ..color = Colors.white.withValues(alpha: 0.25)
+        ..strokeWidth = 0.8;
+      final cx2 = px + 56, cy2 = boardY + 368.0;
+      canvas.drawLine(Offset(cx2, cy2), Offset(cx2-30, cy2-20), crackPaint);
+      canvas.drawLine(Offset(cx2, cy2), Offset(cx2+25, cy2-15), crackPaint);
+      canvas.drawLine(Offset(cx2, cy2), Offset(cx2-20, cy2+18), crackPaint);
+      canvas.drawLine(Offset(cx2, cy2), Offset(cx2+18, cy2+22), crackPaint);
+      canvas.drawLine(Offset(cx2-30, cy2-20), Offset(cx2-45, cy2-10), crackPaint);
+      canvas.drawLine(Offset(cx2+25, cy2-15), Offset(cx2+40, cy2-5), crackPaint);
+
+      // NO SIGNAL yazisi - arada kaybolup beliriyor
+      final noSigAlpha = (math.sin(animTime * 3.5) > 0.2) ? 0.8 : 0.1;
+      _drawTextCentered(canvas, 'NO SIGNAL',
+        px + 56, boardY + 360, 8,
+        Colors.white.withValues(alpha: noSigAlpha), bold: true);
+      _drawTextCentered(canvas, '📵',
+        px + 56, boardY + 378, 16,
+        Colors.white.withValues(alpha: noSigAlpha * 0.8));
+
+    } else {
+      for (int r = 0; r < nextPiece.shape.length; r++) {
+        for (int c = 0; c < nextPiece.shape[r].length; c++) {
+          final v = nextPiece.shape[r][c];
+          if (v != 0) _drawMiniTile(canvas, px+8+c*20, boardY+343+r*20, v);
+        }
       }
     }
 
@@ -1172,40 +1433,34 @@ class TetrisGame extends FlameGame with KeyboardEvents {
   void _drawOverlays(Canvas canvas) {
     final bw = kCols*kCell, bh = kRows*kCell;
 
-    // Combo heat overlay — sol/sağ kenar gradyan
+    // Combo heat — sadece ince board kenarlığı
     if (comboHeat > 0) {
-      final pulse = 0.5 + sin(dangerPulse*4)*0.5;
-      final h = comboHeat;
-      // Mor→pembe→beyaz geçiş
-      final r = (180+h*75).clamp(0,255).toInt();
-      final g = (h*100).clamp(0,255).toInt();
-      final b = (255-h*55).clamp(0,255).toInt();
-      final heatColor = Color.fromARGB(255, r, g, b);
-
-      canvas.drawRect(Rect.fromLTWH(boardX, boardY, 4, bh),
-        Paint()..color=heatColor.withValues(alpha:h*0.7*pulse)
-               ..maskFilter=const MaskFilter.blur(BlurStyle.normal,8));
-      canvas.drawRect(Rect.fromLTWH(boardX+bw-4, boardY, 4, bh),
-        Paint()..color=heatColor.withValues(alpha:h*0.7*pulse)
-               ..maskFilter=const MaskFilter.blur(BlurStyle.normal,8));
-
-      // Board kenar nabzı
-      canvas.drawRect(Rect.fromLTWH(boardX, boardY, bw, bh),
-        Paint()..color=heatColor.withValues(alpha:h*0.75*pulse)..style=PaintingStyle.stroke..strokeWidth=5+h*8);
+      final comboCol = combo >= 8
+          ? const Color(0xFFFF3366)
+          : combo >= 4
+              ? const Color(0xFFFF8800)
+              : const Color(0xFFC87FFF);
+      canvas.drawRect(
+        Rect.fromLTWH(boardX, boardY, bw, bh),
+        Paint()
+          ..color = comboCol.withValues(alpha: comboHeat * 0.5)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 2,
+      );
     }
 
-    // Danger vignette
+    // Danger — sadece üst kırmızı çizgi
     int dangerCount = 0;
     for (int r = 0; r < 4; r++) for (int c = 0; c < kCols; c++) {
       if (board.get(r,c) != 0) dangerCount++;
     }
     if (dangerCount > 0) {
-      final intensity = (dangerCount/8).clamp(0.0,1.0);
-      final pulse = 0.5 + sin(dangerPulse*3)*0.5;
-      canvas.drawRect(Rect.fromLTWH(boardX,boardY,bw,bh),
-        Paint()..color=const Color(0xFFDD1422).withValues(alpha:intensity*pulse*0.9)..style=PaintingStyle.stroke..strokeWidth=7+intensity*8);
-      canvas.drawRect(Rect.fromLTWH(boardX,boardY,bw,6),
-        Paint()..color=const Color(0xFFDD1422).withValues(alpha:intensity*pulse*0.7));
+      final intensity = (dangerCount / 8).clamp(0.0, 1.0);
+      final pulse = 0.5 + math.sin(dangerPulse * 3) * 0.5;
+      canvas.drawRect(
+        Rect.fromLTWH(boardX, boardY, bw, 4),
+        Paint()..color = const Color(0xFFDD1422).withValues(alpha: intensity * pulse * 0.9),
+      );
     }
 
     // Pause
