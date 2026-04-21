@@ -61,14 +61,20 @@ class Ember {
 
 // ─── Uçan score yazısı ───────────────────────────────────────
 class ScoreFloat {
-  double x, y, vy, life, fontSize, alpha;
+  double x, y, vy, life, fontSize, alpha, scale;
   String text; Color color;
   ScoreFloat({required this.x, required this.y, required this.text,
     required this.color, required this.fontSize, this.vy = -70})
-      : life = 1.0, alpha = 1.0;
+      : life = 1.0, alpha = 1.0, scale = 0.3;
   void update(double dt) {
-    y += vy*dt; vy *= 0.87;
-    life -= dt*0.85;
+    // Scale bounce – hızlı büyür
+    if (scale < 1.15) {
+      scale = (scale + dt * 9).clamp(0.3, 1.15);
+    } else if (scale > 1.0) {
+      scale = (scale - dt * 4).clamp(1.0, 1.15);
+    }
+    y += vy * dt; vy *= 0.85;
+    life -= dt * 0.85;
     alpha = life.clamp(0.0, 1.0);
   }
 }
@@ -118,12 +124,22 @@ class ComboWave {
 
 // ─── Pop efekti ──────────────────────────────────────────────
 class PopEffect {
-  double x, y, scale, life; Color color;
+  double x, y, scale, life, alpha; Color color;
   PopEffect({required this.x, required this.y, required this.color})
-      : scale = 0.0, life = 1.0;
+      : scale = 0.0, life = 1.0, alpha = 1.0;
   void update(double dt) {
-    life -= dt*3.8;
-    scale = life > 0.5 ? (1.0-life)*2.6 : life*2.6;
+    life -= dt * 3.5;
+    // Bounce: hızlı büyür, biraz küçülür, tekrar büyür, solar
+    if (life > 0.7) {
+      scale = (1.0 - life) * 3.5; // 0→1.05
+    } else if (life > 0.5) {
+      scale = 1.05 - (0.7 - life) * 2.5; // 1.05→0.55
+    } else if (life > 0.25) {
+      scale = 0.55 + (0.5 - life) * 1.8; // 0.55→1.0
+    } else {
+      scale = life * 4; // 1.0→0
+    }
+    alpha = life.clamp(0.0, 1.0);
   }
 }
 
@@ -179,43 +195,64 @@ class ParticleSystem {
 
   // ── Birleşme efekti ──────────────────────────────────────
   void spawnMerge(double cx, double cy, Color color, int val) {
-    final count = val >= 2048 ? 60 : val >= 512 ? 40 : val >= 128 ? 26 : 16;
-    final speed = val >= 1024 ? 7.5 : val >= 256 ? 5.5 : val >= 64 ? 3.5 : 2.2;
+    final count = val >= 2048 ? 80 : val >= 512 ? 55 : val >= 128 ? 35 : 20;
+    final speed = val >= 1024 ? 9.0 : val >= 256 ? 6.5 : val >= 64 ? 4.5 : 2.8;
 
     // Ana parçacıklar
     for (int i = 0; i < count; i++) {
       final angle = _rng.nextDouble() * math.pi * 2;
-      final spd = speed * (0.3 + _rng.nextDouble() * 1.1);
+      final spd = speed * (0.3 + _rng.nextDouble() * 1.2);
+      final baseColor = _vary(color);
+      // Bazıları beyaz — parlama hissi
+      final pColor = _rng.nextDouble() > 0.75 ? Colors.white : baseColor;
       _particles.add(Particle(
         x: cx, y: cy,
         vx: math.cos(angle)*spd, vy: math.sin(angle)*spd,
-        color: _vary(color),
-        size: 3 + _rng.nextDouble() * (val >= 256 ? 8 : 5),
-        isSquare: _rng.nextDouble() > 0.45,
+        color: pColor,
+        size: 2 + _rng.nextDouble() * (val >= 512 ? 10 : val >= 128 ? 7 : 5),
+        isSquare: _rng.nextDouble() > 0.4,
         rotation: _rng.nextDouble() * math.pi * 2,
-        rotSpeed: (_rng.nextDouble() - 0.5) * 8,
+        rotSpeed: (_rng.nextDouble() - 0.5) * 12,
       ));
     }
 
-    // Işın huzmesi (yüksek değerler)
-    if (val >= 64) {
-      final rayCount = val >= 1024 ? 12 : val >= 256 ? 8 : 5;
+    // Merkeze çekilen parçacıklar — önce içe sonra dışa
+    final inwardCount = val >= 128 ? 12 : 6;
+    for (int i = 0; i < inwardCount; i++) {
+      final angle = (math.pi * 2 / inwardCount) * i;
+      final dist = kCell * (0.8 + _rng.nextDouble() * 0.5);
+      _particles.add(Particle(
+        x: cx + math.cos(angle)*dist,
+        y: cy + math.sin(angle)*dist,
+        vx: -math.cos(angle) * speed * 0.8,
+        vy: -math.sin(angle) * speed * 0.8,
+        color: _vary(color),
+        size: 3 + _rng.nextDouble() * 5,
+        isSquare: false,
+        life: 0.5,
+      ));
+    }
+
+    // Işın huzmesi
+    if (val >= 32) {
+      final rayCount = val >= 1024 ? 16 : val >= 256 ? 10 : 6;
       for (int i = 0; i < rayCount; i++) {
-        final angle = (math.pi * 2 / rayCount) * i + _rng.nextDouble() * 0.3;
+        final angle = (math.pi * 2 / rayCount) * i;
         _rays.add(LightRay(
           x: cx, y: cy, angle: angle,
-          length: kCell * 0.3,
-          color: _vary(color),
-          width: 1.5 + _rng.nextDouble() * 2,
+          length: kCell * 0.2,
+          color: _rng.nextDouble() > 0.5 ? Colors.white : _vary(color),
+          width: 1.2 + _rng.nextDouble() * 2.5,
         ));
       }
     }
 
-    // Şok dalgaları
-    final r = val >= 2048 ? kCell*2.5 : val >= 512 ? kCell*1.8 : kCell*1.1;
-    _shocks.add(ShockWave(x:cx, y:cy, color:color, maxRadius:r, thickness:val>=512?6:3.5));
-    if (val >= 64)  _shocks.add(ShockWave(x:cx, y:cy, color:Colors.white, maxRadius:r*0.5, thickness:2));
-    if (val >= 512) _shocks.add(ShockWave(x:cx, y:cy, color:_vary(color), maxRadius:r*1.7, thickness:2.5));
+    // Şok dalgaları — daha fazla ve yoğun
+    final r = val >= 2048 ? kCell*2.8 : val >= 512 ? kCell*2.0 : val >= 128 ? kCell*1.4 : kCell*1.0;
+    _shocks.add(ShockWave(x:cx, y:cy, color:color, maxRadius:r, thickness:val>=512?7:4));
+    _shocks.add(ShockWave(x:cx, y:cy, color:Colors.white, maxRadius:r*0.45, thickness:2));
+    if (val >= 128) _shocks.add(ShockWave(x:cx, y:cy, color:_vary(color), maxRadius:r*1.4, thickness:2));
+    if (val >= 512) _shocks.add(ShockWave(x:cx, y:cy, color:Colors.white, maxRadius:r*1.8, thickness:1.5));
 
     _pops.add(PopEffect(x:cx, y:cy, color:color));
   }
@@ -223,40 +260,38 @@ class ParticleSystem {
   // ── Patlama efekti ───────────────────────────────────────
   void spawnExplosion(double cx, double cy) {
     final fireCols = [
-      Colors.white, const Color(0xFFFFFF88),
-      Colors.yellow, const Color(0xFFFF8800),
-      Colors.orange, Colors.deepOrange, Colors.red,
+      Colors.white, const Color(0xFFFFFFAA),
+      Colors.yellow, const Color(0xFFFFCC00),
+      const Color(0xFFFF8800), Colors.orange,
+      Colors.deepOrange, Colors.red,
+      const Color(0xFFFF4400),
     ];
-    // Kor parçacıkları
-    for (int i = 0; i < 80; i++) {
+    for (int i = 0; i < 100; i++) {
       final angle = _rng.nextDouble() * math.pi * 2;
-      final spd = 2 + _rng.nextDouble() * 11;
-      final t = i / 80.0;
-      // İçten dışa renk geçişi
-      final colIdx = (t * (fireCols.length - 1)).floor().clamp(0, fireCols.length-1);
+      final spd = 1.5 + _rng.nextDouble() * 13;
+      final t = i / 100.0;
+      final colIdx = (t * (fireCols.length-1)).floor().clamp(0, fireCols.length-1);
       _embers.add(Ember(
         x: cx, y: cy,
-        vx: math.cos(angle)*spd, vy: math.sin(angle)*spd - 1.5,
+        vx: math.cos(angle)*spd, vy: math.sin(angle)*spd - 2,
         color: fireCols[colIdx],
-        size: 5 + _rng.nextDouble() * 10,
+        size: 4 + _rng.nextDouble() * 12,
       ));
     }
-    // Kıvılcım parçacıkları
-    for (int i = 0; i < 40; i++) {
+    for (int i = 0; i < 50; i++) {
       final angle = _rng.nextDouble() * math.pi * 2;
-      final spd = 4 + _rng.nextDouble() * 8;
+      final spd = 5 + _rng.nextDouble() * 10;
       _particles.add(Particle(
         x: cx, y: cy,
-        vx: math.cos(angle)*spd, vy: math.sin(angle)*spd - 2,
+        vx: math.cos(angle)*spd, vy: math.sin(angle)*spd - 3,
         color: _rng.nextDouble() > 0.5 ? Colors.white : Colors.yellow,
-        size: 2 + _rng.nextDouble() * 4,
-        isSquare: false,
+        size: 1.5 + _rng.nextDouble() * 4,
       ));
     }
-    // Şok dalgaları — iç içe üç halka
-    _shocks.add(ShockWave(x:cx, y:cy, color:Colors.white,              maxRadius:kCell*3.5, thickness:8));
-    _shocks.add(ShockWave(x:cx, y:cy, color:const Color(0xFFFF8800),  maxRadius:kCell*5.5, thickness:4));
-    _shocks.add(ShockWave(x:cx, y:cy, color:const Color(0xFFFF3300),  maxRadius:kCell*8.0, thickness:2));
+    _shocks.add(ShockWave(x:cx, y:cy, color:Colors.white,             maxRadius:kCell*4.0, thickness:9));
+    _shocks.add(ShockWave(x:cx, y:cy, color:const Color(0xFFFFAA00), maxRadius:kCell*6.5, thickness:5));
+    _shocks.add(ShockWave(x:cx, y:cy, color:const Color(0xFFFF3300), maxRadius:kCell*9.0, thickness:3));
+    _shocks.add(ShockWave(x:cx, y:cy, color:Colors.white,             maxRadius:kCell*2.0, thickness:5));
   }
 
   // ── Konfeti ──────────────────────────────────────────────

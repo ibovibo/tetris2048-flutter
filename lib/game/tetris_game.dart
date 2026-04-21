@@ -1162,26 +1162,58 @@ class TetrisGame extends FlameGame with KeyboardEvents {
       return;
     }
 
-    // Dış neon glow
+    // Dış glow — rengin kendisi
     canvas.drawRRect(RRect.fromRectAndRadius(
-      Rect.fromLTWH(x+pad-3, y+pad-3, kCell-pad*2+6, kCell-pad*2+6), const Radius.circular(10)),
-      Paint()..color=color.withValues(alpha:0.35*alpha)..maskFilter=const MaskFilter.blur(BlurStyle.normal,8));
+      Rect.fromLTWH(x+pad-4, y+pad-4, kCell-pad*2+8, kCell-pad*2+8),
+      const Radius.circular(12)),
+      Paint()..color=color.withValues(alpha:0.25*alpha)
+             ..maskFilter=const MaskFilter.blur(BlurStyle.normal,10));
 
-    // Ana dolgu
+    // Ana dolgu — hafif koyu alt, parlak üst gradient hissi
     canvas.drawRRect(rect, Paint()..color=color.withValues(alpha:alpha));
 
-    // Glass üst şerit
+    // Üst 1/3 — açık ton (3D tepe ışığı)
+    final lightColor = HSVColor.fromColor(color)
+      .withValue((HSVColor.fromColor(color).value + 0.25).clamp(0,1))
+      .withSaturation((HSVColor.fromColor(color).saturation - 0.15).clamp(0,1))
+      .toColor();
     canvas.drawRRect(RRect.fromRectAndRadius(
-      Rect.fromLTWH(x+pad+2, y+pad+2, kCell-pad*2-4, (kCell-pad*2)*0.42), const Radius.circular(6)),
-      Paint()..color=Colors.white.withValues(alpha:0.38*alpha));
+      Rect.fromLTWH(x+pad, y+pad, kCell-pad*2, (kCell-pad*2)*0.45),
+      const Radius.circular(8)),
+      Paint()..color=lightColor.withValues(alpha:0.55*alpha));
 
-    // Alt koyu
+    // Alt 1/4 — koyu ton (3D gölge)
+    final darkColor = HSVColor.fromColor(color)
+      .withValue((HSVColor.fromColor(color).value - 0.25).clamp(0,1))
+      .toColor();
     canvas.drawRRect(RRect.fromRectAndRadius(
-      Rect.fromLTWH(x+pad, y+kCell-pad-10, kCell-pad*2, 10), const Radius.circular(5)),
-      Paint()..color=Colors.black.withValues(alpha:0.38*alpha));
+      Rect.fromLTWH(x+pad, y+kCell-pad-(kCell-pad*2)*0.28, kCell-pad*2, (kCell-pad*2)*0.28),
+      const Radius.circular(8)),
+      Paint()..color=darkColor.withValues(alpha:0.6*alpha));
 
-    // Kenarlık
-    canvas.drawRRect(rect, Paint()..color=Colors.white.withValues(alpha:0.28*alpha)..style=PaintingStyle.stroke..strokeWidth=1.5);
+    // Sol üst köşe parlama — spot ışığı hissi
+    canvas.drawCircle(
+      Offset(x+pad+7, y+pad+7), 9,
+      Paint()..color=Colors.white.withValues(alpha:0.35*alpha)
+             ..maskFilter=const MaskFilter.blur(BlurStyle.normal,6));
+
+    // İnce parlak üst kenar çizgisi
+    canvas.drawLine(
+      Offset(x+pad+8, y+pad+1.5),
+      Offset(x+kCell-pad-8, y+pad+1.5),
+      Paint()..color=Colors.white.withValues(alpha:0.5*alpha)..strokeWidth=1.5);
+
+    // Dış kenarlık — ince, parlak
+    canvas.drawRRect(rect,
+      Paint()..color=Colors.white.withValues(alpha:0.22*alpha)
+             ..style=PaintingStyle.stroke..strokeWidth=1.2);
+
+    // İç kenarlık — rengin açık tonu
+    canvas.drawRRect(RRect.fromRectAndRadius(
+      Rect.fromLTWH(x+pad+1.5, y+pad+1.5, kCell-pad*2-3, kCell-pad*2-3),
+      const Radius.circular(6)),
+      Paint()..color=lightColor.withValues(alpha:0.18*alpha)
+             ..style=PaintingStyle.stroke..strokeWidth=0.8);
 
     // Label
     final label = _getTileLabel(val);
