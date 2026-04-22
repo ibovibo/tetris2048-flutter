@@ -15,7 +15,7 @@ import 'sound_manager.dart';
 import 'particle_system.dart';
 import 'max_explosion.dart';
 
-class TetrisGame extends FlameGame with KeyboardEvents {
+class TetrisGame extends FlameGame with KeyboardEvents, TapDetector, PanDetector {
   TetrisGame();
   void Function()? onPause;
 
@@ -68,6 +68,13 @@ class TetrisGame extends FlameGame with KeyboardEvents {
   double boardX = 0;
   double boardY = 0;
   MaxExplosion? _maxExplosion;
+
+  // Swipe/drag kontrolleri
+  double _dragStartX = 0;
+  double _dragStartY = 0;
+  double _dragTotalX = 0;
+  double _dragTotalY = 0;
+  bool _dragLocked = false;
 
   @override
   Color backgroundColor() => const Color(0xFF04040E);
@@ -146,6 +153,58 @@ class TetrisGame extends FlameGame with KeyboardEvents {
       if (kDebugMode && event.logicalKey == LogicalKeyboardKey.keyP) _debugInject32768();
     }
     return KeyEventResult.handled;
+  }
+
+  @override
+  void onPanStart(DragStartInfo info) {
+    _dragStartX = info.eventPosition.global.x;
+    _dragStartY = info.eventPosition.global.y;
+    _dragTotalX = 0;
+    _dragTotalY = 0;
+    _dragLocked = false;
+  }
+
+  @override
+  void onPanUpdate(DragUpdateInfo info) {
+    if (!gameActive || paused) return;
+    _dragTotalX += info.delta.global.x;
+    _dragTotalY += info.delta.global.y;
+
+    // Yatay kaydirma - sola/saga
+    if (_dragTotalX.abs() > _dragTotalY.abs()) {
+      if (_dragTotalX > 20) {
+        _moveRight();
+        _dragTotalX = 0;
+      } else if (_dragTotalX < -20) {
+        _moveLeft();
+        _dragTotalX = 0;
+      }
+    }
+
+    // Yukari kaydirma - rotate
+    if (_dragTotalY < -40 && !_dragLocked) {
+      _rotate();
+      _dragLocked = true;
+    }
+
+    // Asagi hizli kaydirma - hard drop (space)
+    if (_dragTotalY > 60 && !_dragLocked) {
+      _hardDrop();
+      _dragLocked = true;
+    }
+  }
+
+  @override
+  void onPanEnd(DragEndInfo info) {
+    _dragTotalX = 0;
+    _dragTotalY = 0;
+  }
+
+  @override
+  void onTapDown(TapDownInfo info) {
+    if (!gameActive || paused) return;
+    if (_maxExplosion != null) return;
+    _rotate();
   }
 
   void _debugInject32768() {
