@@ -1,6 +1,7 @@
 import 'dart:math';
 import 'dart:math' as math;
 import 'dart:async';
+import 'package:flame/events.dart';
 import 'package:flame/game.dart';
 import 'package:flame/input.dart';
 import 'package:flutter/foundation.dart';
@@ -15,7 +16,7 @@ import 'sound_manager.dart';
 import 'particle_system.dart';
 import 'max_explosion.dart';
 
-class TetrisGame extends FlameGame with KeyboardEvents, TapDetector, PanDetector {
+class TetrisGame extends FlameGame with KeyboardEvents, DoubleTapDetector, PanDetector {
   TetrisGame();
   void Function()? onPause;
 
@@ -171,7 +172,7 @@ class TetrisGame extends FlameGame with KeyboardEvents, TapDetector, PanDetector
     _dragTotalY += info.delta.global.y;
 
     // Yatay kaydirma - sola/saga
-    if (_dragTotalX.abs() > _dragTotalY.abs()) {
+    if (_dragTotalX.abs() > _dragTotalY.abs() * 1.8) {
       if (_dragTotalX > 20) {
         _moveRight();
         _dragTotalX = 0;
@@ -201,7 +202,7 @@ class TetrisGame extends FlameGame with KeyboardEvents, TapDetector, PanDetector
   }
 
   @override
-  void onTapDown(TapDownInfo info) {
+  void onDoubleTapDown(TapDownInfo info) {
     if (!gameActive || paused) return;
     if (_maxExplosion != null) return;
     _rotate();
