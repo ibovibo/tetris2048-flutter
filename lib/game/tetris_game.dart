@@ -1,6 +1,7 @@
 import 'dart:math';
 import 'dart:math' as math;
 import 'dart:async';
+import 'dart:ui' as ui;
 import 'package:flame/events.dart';
 import 'package:flame/game.dart';
 import 'package:flame/input.dart';
@@ -69,6 +70,7 @@ class TetrisGame extends FlameGame with KeyboardEvents, DoubleTapDetector, PanDe
   double boardX = 0;
   double boardY = 0;
   MaxExplosion? _maxExplosion;
+  final Map<int, ui.Picture> _glowCache = {};
 
   // Swipe/drag kontrolleri
   double _dragStartX = 0;
@@ -105,6 +107,22 @@ class TetrisGame extends FlameGame with KeyboardEvents, DoubleTapDetector, PanDe
     } catch (_) {}
   }
 
+  ui.Picture _buildGlowPicture(Color color) {
+    const pad = 1.5;
+    final recorder = ui.PictureRecorder();
+    final canvas = Canvas(recorder);
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromLTWH(3, 3, kCell - pad * 2 + 6, kCell - pad * 2 + 6),
+        const Radius.circular(10),
+      ),
+      Paint()
+        ..color = color.withValues(alpha: 0.30)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8),
+    );
+    return recorder.endRecording();
+  }
+
   @override
   void onGameResize(Vector2 size) {
     super.onGameResize(size);
@@ -125,6 +143,7 @@ class TetrisGame extends FlameGame with KeyboardEvents, DoubleTapDetector, PanDe
     seenMilestones = {}; maxTile = 0;
     activeSeason = null; seasonTurnsLeft = 0; _seasonBombTimer = 0;
     _mysteryActive = false;
+    _glowCache.clear();
     particles.seasonBg.setSeason(null);
     multiplierLines.clear();
     popCells.clear();
@@ -1318,12 +1337,11 @@ class TetrisGame extends FlameGame with KeyboardEvents, DoubleTapDetector, PanDe
       return;
     }
 
-    // Dış glow — rengin kendisi
-    canvas.drawRRect(RRect.fromRectAndRadius(
-      Rect.fromLTWH(x+pad-4, y+pad-4, kCell-pad*2+8, kCell-pad*2+8),
-      const Radius.circular(12)),
-      Paint()..color=color.withValues(alpha:0.25*alpha)
-             ..maskFilter=const MaskFilter.blur(BlurStyle.normal,10));
+    final glowPic = _glowCache.putIfAbsent(color.value, () => _buildGlowPicture(color));
+    canvas.save();
+    canvas.translate(x, y);
+    canvas.drawPicture(glowPic);
+    canvas.restore();
 
     // Ana dolgu — hafif koyu alt, parlak üst gradient hissi
     canvas.drawRRect(rect, Paint()..color=color.withValues(alpha:alpha));
