@@ -17,7 +17,7 @@ import 'sound_manager.dart';
 import 'particle_system.dart';
 import 'max_explosion.dart';
 
-class TetrisGame extends FlameGame with KeyboardEvents, DoubleTapDetector, PanDetector {
+class TetrisGame extends FlameGame with KeyboardEvents, DoubleTapDetector, PanDetector, TapDetector {
   TetrisGame();
   void Function()? onPause;
 
@@ -229,6 +229,41 @@ class TetrisGame extends FlameGame with KeyboardEvents, DoubleTapDetector, PanDe
     if (!gameActive || paused) return;
     if (_maxExplosion != null) return;
     _rotate();
+  }
+
+  @override
+  void onTapDown(TapDownInfo info) {
+    final tap = info.eventPosition.global;
+    final bw = kCols * kCell;
+    final bh = kRows * kCell;
+
+    if (paused && gameActive) {
+      const ph = 186.0;
+      final pcx = boardX + bw / 2;
+      final pry = boardY + bh / 2 - ph / 2;
+      if (_isInsideButton(tap, pcx, pry + 90, 162, 36)) {
+        _togglePause();
+        return;
+      }
+      if (_isInsideButton(tap, pcx, pry + 140, 162, 36)) {
+        goToMenu();
+      }
+      return;
+    }
+
+    if (!gameActive) {
+      const ph = 248.0;
+      final gcx = size.x / 2;
+      final gry = size.y / 2 - ph / 2 - 8;
+      if (_isInsideButton(tap, gcx, gry + 208, 178, 36)) {
+        _initGame();
+      }
+    }
+  }
+
+  bool _isInsideButton(Vector2 tap, double cx, double cy, double w, double h) {
+    final rect = Rect.fromCenter(center: Offset(cx, cy), width: w, height: h);
+    return rect.contains(Offset(tap.x, tap.y));
   }
 
   void _debugInject32768() {
@@ -1659,11 +1694,11 @@ class TetrisGame extends FlameGame with KeyboardEvents, DoubleTapDetector, PanDe
 
     // Game over
     if (!gameActive) {
-      canvas.drawRect(Rect.fromLTWH(boardX, boardY, bw, bh),
+      canvas.drawRect(Rect.fromLTWH(0, 0, size.x, size.y),
         Paint()..color = Colors.black.withValues(alpha: 0.92));
       const pw = 216.0, ph = 248.0;
-      final gcx = boardX + bw / 2;
-      final grx = gcx - pw / 2, gry = boardY + bh / 2 - ph / 2 - 8;
+      final gcx = size.x / 2;
+      final grx = gcx - pw / 2, gry = size.y / 2 - ph / 2 - 8;
       // Panel dış glow
       canvas.drawRRect(RRect.fromRectAndRadius(
         Rect.fromLTWH(grx - 10, gry - 10, pw + 20, ph + 20), const Radius.circular(22)),
