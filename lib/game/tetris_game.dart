@@ -128,10 +128,8 @@ class TetrisGame extends FlameGame with KeyboardEvents, DoubleTapDetector, PanDe
   @override
   void onGameResize(Vector2 size) {
     super.onGameResize(size);
-    const topAreaH = 44.0 + 8.0 + 68.0 + 8.0; // top bar + margin + score panel + margin
-    const rightPanelW = 100.0;
-    boardX = (size.x - kCols * kCell - 8.0 - rightPanelW) / 2;
-    boardY = topAreaH;
+    boardX = (size.x - kCols * kCell) / 2; // ortala
+    boardY = 130.0; // skor paneli altında başlasın
   }
 
   void _initGame() {
@@ -489,6 +487,7 @@ class TetrisGame extends FlameGame with KeyboardEvents, DoubleTapDetector, PanDe
   }
 
   void _pickNewMultiplier() {
+    return; // multiplier lines devre dışı
     final progress = (score / 5000).clamp(0.0, 1.0);
     if (multiplierLines.length >= 2) multiplierLines.removeAt(0);
     final mults = [2, 2, 4, 4, 8, 16];
@@ -920,6 +919,7 @@ class TetrisGame extends FlameGame with KeyboardEvents, DoubleTapDetector, PanDe
   }
 
   void _drawMultiplierLines(Canvas canvas) {
+    return; // multiplier lines devre dışı
     for (final ml in multiplierLines) {
       final pulse = 0.5 + sin(animTime * 4 + ml.index * 0.7) * 0.5;
       final scanPos = (animTime * 0.9 + ml.index * 0.4) % 1.0;
@@ -992,7 +992,7 @@ class TetrisGame extends FlameGame with KeyboardEvents, DoubleTapDetector, PanDe
     // Board arkaplanı — şeffaf cam efekti
     canvas.drawRect(
       Rect.fromLTWH(boardX, boardY, kCols * kCell, kRows * kCell),
-      Paint()..color = Colors.white.withValues(alpha: 0.13),
+      Paint()..color = Colors.white.withValues(alpha: 0.30),
     );
 
     final gridPaint = Paint()..color = Colors.white.withValues(alpha:0.05)..style=PaintingStyle.stroke..strokeWidth=0.7;
@@ -1452,41 +1452,38 @@ class TetrisGame extends FlameGame with KeyboardEvents, DoubleTapDetector, PanDe
     const topBarH = 44.0;
     const scorePanelH = 68.0;
     const scorePanelY = topBarH + 8.0;
-    const rpW = 100.0;
-    final rpX = boardX + kCols * kCell + 8;
     final bw = kCols * kCell;
+    final rpW = 80.0;
+    final rpX = boardX + bw - 4;
 
     // === ÜST BAR ===
     canvas.drawRRect(
       RRect.fromRectAndRadius(Rect.fromLTWH(6, 6, s.x - 12, topBarH - 12), const Radius.circular(12)),
-      Paint()..color = const Color(0xFF1E64C8).withValues(alpha: 0.50),
-    );
-    // Pause butonu
+      Paint()..color = const Color(0xFF1E64C8).withValues(alpha: 0.50));
     canvas.drawRRect(
       RRect.fromRectAndRadius(Rect.fromLTWH(16, 11, 36, 26), const Radius.circular(8)),
-      Paint()..color = const Color(0xFF4A9EFF).withValues(alpha: 0.60),
-    );
+      Paint()..color = const Color(0xFF4A9EFF).withValues(alpha: 0.60));
     _drawTextCentered(canvas, '||', 34, 24, 13, Colors.white, bold: true);
-    // Başlık
     _drawTextCentered(canvas, '2048 × TETRİS', s.x / 2, 23, 15, Colors.white, bold: true);
 
-    // === SKOR PANELİ ===
+    // === SKOR PANELİ — SKOR | EN YÜKSEK | COMBO ===
     final leftW = bw * 0.31;
     final midW = bw * 0.38;
     final rightW = bw - leftW - midW - 4;
+
     _drawScoreBox(canvas, boardX, scorePanelY, leftW, scorePanelH,
         'SKOR', displayScore.toInt().toString(), false);
     _drawScoreBox(canvas, boardX + leftW + 2, scorePanelY, midW, scorePanelH,
         'EN YÜKSEK', best.toString(), true);
-    _drawScoreBox(canvas, boardX + leftW + midW + 4, scorePanelY, rightW, scorePanelH,
-        'LEVEL', level.toString(), false);
 
-    // Level bar (LEVEL kutusunun altında)
-    final lvX = boardX + leftW + midW + 4;
-    canvas.drawRect(Rect.fromLTWH(lvX, scorePanelY + scorePanelH - 5, rightW, 5),
-      Paint()..color = Colors.black.withValues(alpha: 0.45));
-    canvas.drawRect(Rect.fromLTWH(lvX, scorePanelY + scorePanelH - 5, rightW * _getLevelProgress(), 5),
-      Paint()..color = const Color(0xFF4A9EFF));
+    // COMBO kutusu — level yerine
+    final comboColor = combo >= 12 ? const Color(0xFFFF3366)
+        : combo >= 8 ? const Color(0xFFFF6600)
+        : combo >= 5 ? const Color(0xFFFFCC00)
+        : combo >= 3 ? const Color(0xFF88FF44)
+        : const Color(0xFFC87FFF);
+    _drawScoreBox(canvas, boardX + leftW + midW + 4, scorePanelY, rightW, scorePanelH,
+        'COMBO', 'x$combo', false, valueColor: comboColor);
 
     // === SAĞ PANEL: SONRAKİ ===
     _drawRightBox(canvas, rpX, boardY, rpW, 115, 'SONRAKİ');
@@ -1516,43 +1513,13 @@ class TetrisGame extends FlameGame with KeyboardEvents, DoubleTapDetector, PanDe
       }
     }
 
-    // === SAĞ PANEL: COMBO ===
-    const comboPanelY = 123.0;
-    _drawRightBox(canvas, rpX, boardY + comboPanelY, rpW, 88, 'COMBO');
-    final comboColor = combo >= 12 ? const Color(0xFFFF3366)
-        : combo >= 8  ? const Color(0xFFFF6600)
-        : combo >= 5  ? const Color(0xFFFFCC00)
-        : combo >= 3  ? const Color(0xFF88FF44)
-        :               const Color(0xFFC87FFF);
-    final comboFontSize = combo >= 12 ? 26.0
-        : combo >= 8  ? 24.0
-        : combo >= 5  ? 22.0
-        : combo >= 3  ? 20.0
-        :               18.0;
-    if (combo >= 3) {
-      final pulse = 0.5 + sin(animTime * (combo >= 8 ? 6 : 4)) * 0.5;
-      canvas.drawRRect(
-        RRect.fromRectAndRadius(Rect.fromLTWH(rpX, boardY + comboPanelY, rpW, 88), const Radius.circular(10)),
-        Paint()..color = comboColor.withValues(alpha: 0.15 * pulse));
-      canvas.drawRRect(
-        RRect.fromRectAndRadius(Rect.fromLTWH(rpX, boardY + comboPanelY, rpW, 88), const Radius.circular(10)),
-        Paint()..color = comboColor.withValues(alpha: 0.6 * pulse)
-               ..style = PaintingStyle.stroke..strokeWidth = combo >= 8 ? 2.5 : 1.5);
-    }
-    _drawTextCentered(canvas, 'x$combo', rpX + rpW / 2, boardY + comboPanelY + 56,
-        comboFontSize, comboColor, bold: true);
-    if (streak > 0) {
-      _drawTextCentered(canvas, '🔥$streak', rpX + rpW / 2, boardY + comboPanelY + 76,
-          12, const Color(0xFFFF8040), bold: true);
-    }
-
-    // === MEVSİM GÖSTERGESİ (sağ panel altı) ===
+    // === SAĞ PANEL: MEVSİM ===
     if (activeSeason != null && seasonTurnsLeft > 0) {
       final si = kSeasons.firstWhere((s) => s.key == activeSeason, orElse: () => kSeasons[0]);
       final sColor = si.color;
       final pulse = 0.7 + sin(animTime * 3) * 0.3;
       const siH = 54.0;
-      final siY = boardY + comboPanelY + 88 + 8;
+      final siY = boardY + 123;
       canvas.drawRRect(
         RRect.fromRectAndRadius(Rect.fromLTWH(rpX, siY, rpW, siH), const Radius.circular(10)),
         Paint()..color = sColor.withValues(alpha: 0.15));
@@ -1565,22 +1532,34 @@ class TetrisGame extends FlameGame with KeyboardEvents, DoubleTapDetector, PanDe
       _drawTextCentered(canvas, '$seasonTurnsLeft TUR',
           rpX + rpW / 2, siY + 36, 9, sColor.withValues(alpha: pulse), bold: true);
     }
+
+    // === LEVEL BAR — en altta ince çizgi ===
+    final boardBottom = boardY + kRows * kCell;
+    canvas.drawRect(
+      Rect.fromLTWH(boardX, boardBottom + 6, bw, 6),
+      Paint()..color = Colors.black.withValues(alpha: 0.4));
+    canvas.drawRect(
+      Rect.fromLTWH(boardX, boardBottom + 6, bw * _getLevelProgress(), 6),
+      Paint()..color = const Color(0xFF4A9EFF));
+    _drawTextCentered(canvas, 'SEVİYE $level',
+      boardX + bw / 2, boardBottom + 20, 9,
+      Colors.white.withValues(alpha: 0.6));
   }
 
   void _drawScoreBox(Canvas canvas, double x, double y, double w, double h,
-      String label, String value, bool highlight) {
+      String label, String value, bool highlight, {Color? valueColor}) {
     final bg = highlight
         ? const Color(0xFF1E64C8).withValues(alpha: 0.82)
         : const Color(0xFF1E64C8).withValues(alpha: 0.60);
     final border = highlight ? const Color(0xFFFFD700) : const Color(0xFF4A9EFF);
-    final valColor = highlight ? const Color(0xFFFFD700) : Colors.white;
+    final vColor = valueColor ?? (highlight ? const Color(0xFFFFD700) : Colors.white);
     final valSize = highlight ? 20.0 : 16.0;
     canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromLTWH(x, y, w, h), const Radius.circular(10)),
       Paint()..color = bg);
     canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromLTWH(x, y, w, h), const Radius.circular(10)),
       Paint()..color = border.withValues(alpha: 0.85)..style = PaintingStyle.stroke..strokeWidth = 1.5);
     _drawTextCentered(canvas, label, x + w / 2, y + 16, 9, Colors.white.withValues(alpha: 0.75));
-    _drawTextCentered(canvas, value, x + w / 2, y + h - 18, valSize, valColor, bold: true);
+    _drawTextCentered(canvas, value, x + w / 2, y + h - 18, valSize, vColor, bold: true);
   }
 
   void _drawRightBox(Canvas canvas, double x, double y, double w, double h, String label) {
