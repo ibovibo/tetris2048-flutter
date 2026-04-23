@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'game/tetris_game.dart';
 import 'package:flame/game.dart';
 import 'game/sound_manager.dart';
@@ -30,88 +31,75 @@ class _MenuScreenState extends State<MenuScreen> with SingleTickerProviderStateM
 
   @override
   Widget build(BuildContext context) {
-    final size = MediaQuery.of(context).size;
     return Scaffold(
-      backgroundColor: const Color(0xFF020818),
+      backgroundColor: const Color(0xFF1a1a2e),
       body: Stack(
         children: [
-          CustomPaint(painter: _GridPainter(), size: size),
-          SafeArea(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                _buildLogo(),
-                const SizedBox(height: 60),
-                _buildPlayButton(context),
-                const SizedBox(height: 16),
-                GestureDetector(
-                  onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SettingsScreen())),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF0C0820),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: const Color(0xFF5CF5E0).withValues(alpha: 0.3)),
-                    ),
-                    child: const Text('⚙ AYARLAR', style: TextStyle(
-                      fontFamily: 'monospace', fontSize: 13,
-                      color: Color(0xFF5CF5E0), letterSpacing: 3,
-                    )),
-                  ),
-                ),
-                const SizedBox(height: 32),
-                _buildStats(),
-              ],
+          // Tam ekran SVG arka plan
+          Positioned.fill(
+            child: SvgPicture.asset(
+              'assets/images/menu.svg',
+              fit: BoxFit.cover,
             ),
+          ),
+
+          // Sol üst — Shop butonu
+          Positioned(
+            top: 48, left: 20,
+            child: _buildIconButton(
+              icon: Icons.shopping_bag_outlined,
+              label: 'Shop',
+              onTap: () {},
+            ),
+          ),
+
+          // Sağ üst — Settings butonu
+          Positioned(
+            top: 48, right: 20,
+            child: _buildIconButton(
+              icon: Icons.settings_outlined,
+              label: 'Ayarlar',
+              onTap: () => Navigator.push(context,
+                MaterialPageRoute(builder: (_) => const SettingsScreen())),
+            ),
+          ),
+
+          // Alt orta — OYNA butonu
+          Positioned(
+            bottom: 80,
+            left: 0, right: 0,
+            child: Center(child: _buildPlayButton(context)),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildLogo() {
-    return Column(
-      children: [
-        Row(
+  Widget _buildIconButton({
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 64, height: 64,
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.22),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.3), width: 1),
+        ),
+        child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            for (final e in [
-              ['T', 0xFFFF3333],
-              ['E', 0xFFFF9900],
-              ['T', 0xFFFFEE00],
-              ['R', 0xFF33CC33],
-              ['İ', 0xFF3399FF],
-              ['S', 0xFF9933FF],
-            ])
-              Text(e[0] as String, style: TextStyle(
-                fontFamily: 'monospace', fontSize: 48, fontWeight: FontWeight.w900,
-                color: Color(e[1] as int),
-                shadows: [Shadow(color: Color(e[1] as int), blurRadius: 16), const Shadow(color: Colors.black54, blurRadius: 4, offset: Offset(2, 3))],
-              )),
+            Icon(icon, color: Colors.white, size: 26),
+            const SizedBox(height: 2),
+            Text(label, style: const TextStyle(
+              fontSize: 9, color: Colors.white, fontWeight: FontWeight.w600,
+            )),
           ],
         ),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            for (final e in [
-              ['2', 0xFF3399FF],
-              ['0', 0xFF33CC99],
-              ['4', 0xFFFF9900],
-              ['8', 0xFFFF3366],
-            ])
-              Text(e[0] as String, style: TextStyle(
-                fontFamily: 'monospace', fontSize: 56, fontWeight: FontWeight.w900,
-                color: Color(e[1] as int),
-                shadows: [Shadow(color: Color(e[1] as int), blurRadius: 20), const Shadow(color: Colors.black54, blurRadius: 4, offset: Offset(2, 3))],
-              )),
-          ],
-        ),
-        const SizedBox(height: 8),
-        Text('HYBRID PUZZLE GAME', style: TextStyle(
-          fontFamily: 'monospace', fontSize: 11, letterSpacing: 5,
-          color: Colors.white.withValues(alpha:0.3),
-        )),
-      ],
+      ),
     );
   }
 
@@ -128,56 +116,52 @@ class _MenuScreenState extends State<MenuScreen> with SingleTickerProviderStateM
         builder: (_, __) => Transform.scale(
           scale: 1.0 + _controller.value * 0.02,
           child: Container(
-            width: 260, height: 64,
+            width: 200, height: 60,
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(14),
               gradient: const LinearGradient(
                 begin: Alignment.topCenter, end: Alignment.bottomCenter,
                 colors: [Color(0xFFFFAA00), Color(0xFFCC4400)],
               ),
-              boxShadow: [BoxShadow(color: const Color(0xFFFF6600).withValues(alpha:0.5), blurRadius: 20, spreadRadius: 2)],
+              boxShadow: [
+                BoxShadow(color: const Color(0xFFFF6600).withValues(alpha: 0.6),
+                  blurRadius: 24, spreadRadius: 2),
+              ],
             ),
             child: Stack(
               children: [
+                // Üst parlama
                 Positioned(
                   top: 4, left: 8, right: 8,
                   child: Container(
-                    height: 24,
+                    height: 20,
                     decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha:0.25),
+                      color: Colors.white.withValues(alpha: 0.25),
                       borderRadius: BorderRadius.circular(8),
                     ),
                   ),
                 ),
+                // Play ikonu + yazı
                 const Center(
-                  child: Text('OYNA', style: TextStyle(
-                    fontFamily: 'monospace', fontSize: 26, fontWeight: FontWeight.w900,
-                    color: Colors.white,
-                    shadows: [Shadow(color: Colors.black38, blurRadius: 4, offset: Offset(0, 2))],
-                  )),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.play_arrow, color: Colors.white, size: 28),
+                      SizedBox(width: 8),
+                      Text('OYNA', style: TextStyle(
+                        fontFamily: 'monospace', fontSize: 22,
+                        fontWeight: FontWeight.w900, color: Colors.white,
+                        shadows: [Shadow(color: Colors.black38, blurRadius: 4,
+                          offset: Offset(0, 2))],
+                      )),
+                    ],
+                  ),
                 ),
               ],
             ),
           ),
         ),
       ),
-    );
-  }
-
-  Widget _buildStats() {
-    return Column(
-      children: [
-        Text('EN YÜKSEK SKOR', style: TextStyle(
-          fontFamily: 'monospace', fontSize: 10, letterSpacing: 3,
-          color: Colors.white.withValues(alpha:0.3),
-        )),
-        const SizedBox(height: 4),
-        const Text('0', style: TextStyle(
-          fontFamily: 'monospace', fontSize: 26, fontWeight: FontWeight.bold,
-          color: Color(0xFFF5E05C),
-          shadows: [Shadow(color: Color(0xFFF5E05C), blurRadius: 10)],
-        )),
-      ],
     );
   }
 }
@@ -197,19 +181,4 @@ class GameScreen extends StatelessWidget {
       body: GameWidget(game: game),
     );
   }
-}
-
-class _GridPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()..color = const Color(0xFF1A4A8A).withValues(alpha:0.4)..strokeWidth = 0.5;
-    for (double x = 0; x < size.width; x += 44) {
-      canvas.drawLine(Offset(x, 0), Offset(x, size.height), paint);
-    }
-    for (double y = 0; y < size.height; y += 44) {
-      canvas.drawLine(Offset(0, y), Offset(size.width, y), paint);
-    }
-  }
-  @override
-  bool shouldRepaint(_) => false;
 }
