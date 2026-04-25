@@ -2,6 +2,7 @@ import 'dart:math';
 import 'dart:math' as math;
 import 'dart:async';
 import 'dart:ui' as ui;
+import 'package:flame/flame.dart';
 import 'package:flame/events.dart';
 import 'package:flame/game.dart';
 import 'package:flame/input.dart';
@@ -71,6 +72,7 @@ class TetrisGame extends FlameGame with KeyboardEvents, DoubleTapDetector, PanDe
   double boardY = 0;
   MaxExplosion? _maxExplosion;
   final Map<int, ui.Picture> _glowCache = {};
+  final Map<String, ui.Image> _blockImages = {};
   ui.Image? _bgImage;
 
   // Swipe/drag kontrolleri
@@ -90,6 +92,25 @@ class TetrisGame extends FlameGame with KeyboardEvents, DoubleTapDetector, PanDe
     SoundManager.init().then((_) => SoundManager.playGameMusic());
     await _loadBest();
     try { _bgImage = await images.load('game_bg.jpg'); } catch (_) {}
+
+    final blockMap = {
+      '2': 'blokk_2', '4': 'blokk_4', '8': 'blokk_8',
+      '16': 'blokk_16', '32': 'blokk_32', '64': 'blokk_64',
+      '128': 'blokk_128', '256': 'blokk_256', '512': 'blokk_512',
+      '1024': 'blokk_1024', '2048': 'blokk_2048', '4096': 'blokk_4096',
+      '8192': 'blokk_8192', '16384': 'blokk_16384',
+      'joker': 'blokk_joker', 'bomb': 'blokk_bomba', 'ice': 'blokk_buz',
+      'star': 'blokk_yokeden', 'x2': 'blokk_2x', 'x4': 'blokk_4x',
+      'x8': 'blokk_8x', 'x16': 'blokk_16x', 'megabomb': 'blokk_megabomba',
+    };
+    for (final entry in blockMap.entries) {
+      try {
+        _blockImages[entry.key] = await Flame.images.load('blocks/${entry.value}.png');
+      } catch (_) {}
+    }
+
+    debugPrint('Yuklenen bloklar: ${_blockImages.keys.toList()}');
+
     _initGame();
   }
 
@@ -1319,6 +1340,45 @@ class TetrisGame extends FlameGame with KeyboardEvents, DoubleTapDetector, PanDe
         textDirection: TextDirection.ltr,
       )..layout();
       tp.paint(canvas, Offset(x+kCell/2-tp.width/2, y+kCell/2-tp.height/2+1));
+      return;
+    }
+
+    // PNG blok çizimi
+    String? imgKey;
+    if (val == 2) {
+      imgKey = '2';
+    } else if (val == 4) imgKey = '4';
+    else if (val == 8) imgKey = '8';
+    else if (val == 16) imgKey = '16';
+    else if (val == 32) imgKey = '32';
+    else if (val == 64) imgKey = '64';
+    else if (val == 128) imgKey = '128';
+    else if (val == 256) imgKey = '256';
+    else if (val == 512) imgKey = '512';
+    else if (val == 1024) imgKey = '1024';
+    else if (val == 2048) imgKey = '2048';
+    else if (val == 4096) imgKey = '4096';
+    else if (val == 8192) imgKey = '8192';
+    else if (val >= 16384) imgKey = '16384';
+    else if (val == kJoker) imgKey = 'joker';
+    else if (val == kBomb) imgKey = 'bomb';
+    else if (val == kIce) imgKey = 'ice';
+    else if (val == kStar) imgKey = 'star';
+    else if (val == kX2) imgKey = 'x2';
+    else if (val == kX4) imgKey = 'x4';
+    else if (val == kX8) imgKey = 'x8';
+    else if (val == kX16) imgKey = 'x16';
+    else if (val == kMegaBomb) imgKey = 'megabomb';
+
+    debugPrint('drawTile val=$val imgKey=$imgKey found=${_blockImages.containsKey(imgKey)}');
+
+    if (imgKey != null && _blockImages.containsKey(imgKey)) {
+      final img = _blockImages[imgKey]!;
+      final src = Rect.fromLTWH(0, 0, img.width.toDouble(), img.height.toDouble());
+      final dst = Rect.fromLTWH(x+pad, y+pad, kCell-pad*2, kCell-pad*2);
+      canvas.drawImageRect(img, src, dst,
+        Paint()..filterQuality = FilterQuality.medium
+               ..color = Colors.white.withValues(alpha: alpha));
       return;
     }
 
