@@ -192,16 +192,7 @@ class SpecialResolver {
         if (minNeighbor < 999999) {
           targetVal = minNeighbor;
         } else {
-          // Komşu yoksa boarddaki en sık değeri al
-          final freq = <int, int>{};
-          for (int rr = 0; rr < kRows; rr++) {
-            for (int cc = 0; cc < kCols; cc++) {
-              final v = board.get(rr, cc);
-              if (v > 0 && !isObstacle(v)) freq[v] = (freq[v] ?? 0) + 1;
-            }
-          }
-          if (freq.isEmpty) continue;
-          targetVal = freq.entries.reduce((a, b) => a.value >= b.value ? a : b).key;
+          continue; // komsu yoksa hicbir sey yapma
         }
 
         // Tüm targetVal'ları sil ve say

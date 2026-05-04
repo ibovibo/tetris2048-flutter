@@ -195,7 +195,7 @@ class ParticleSystem {
 
   // ── Birleşme efekti ──────────────────────────────────────
   void spawnMerge(double cx, double cy, Color color, int val) {
-    final count = val >= 2048 ? 80 : val >= 512 ? 55 : val >= 128 ? 35 : 20;
+    final count = val >= 2048 ? 30 : val >= 512 ? 20 : val >= 128 ? 12 : 8;
     final speed = val >= 1024 ? 9.0 : val >= 256 ? 6.5 : val >= 64 ? 4.5 : 2.8;
 
     // Ana parçacıklar
@@ -266,7 +266,7 @@ class ParticleSystem {
       Colors.deepOrange, Colors.red,
       const Color(0xFFFF4400),
     ];
-    for (int i = 0; i < 100; i++) {
+    for (int i = 0; i < 50; i++) {
       final angle = _rng.nextDouble() * math.pi * 2;
       final spd = 1.5 + _rng.nextDouble() * 13;
       final t = i / 100.0;
@@ -278,7 +278,7 @@ class ParticleSystem {
         size: 4 + _rng.nextDouble() * 12,
       ));
     }
-    for (int i = 0; i < 50; i++) {
+    for (int i = 0; i < 25; i++) {
       final angle = _rng.nextDouble() * math.pi * 2;
       final spd = 5 + _rng.nextDouble() * 10;
       _particles.add(Particle(
@@ -339,8 +339,10 @@ class ParticleSystem {
     _banners.add(MilestoneBanner(val:val, msg:msg, color:color));
   }
 
-  void addComboWave(Color color, int combo) =>
-      _waves.add(ComboWave(color:color, comboCount:combo));
+  void addComboWave(Color color, int combo) {
+    // Devre dışı: combo dalgası artık çizilmiyor
+    return;
+  }
 
   void addBounce(double cx, double cy, Color color) =>
       _pops.add(PopEffect(x:cx, y:cy, color:color));
@@ -411,17 +413,7 @@ class ParticleSystem {
     _renderBgStars(canvas, screenW, screenH);
     seasonBg.render(canvas, boardX, boardY, bw, bh);
 
-    // 1. Combo dalgası
-    for (final w in _waves) {
-      final a = w.life.clamp(0.0,1.0);
-      final pulse = math.sin(w.life*math.pi);
-      canvas.drawRect(Rect.fromLTWH(boardX-5,boardY-5,bw+10,bh+10),
-        Paint()..color=w.color.withValues(alpha:a*0.95)
-               ..style=PaintingStyle.stroke
-               ..strokeWidth=(6.0+w.comboCount*3.0)*pulse);
-      canvas.drawRect(Rect.fromLTWH(boardX+3,boardY+3,bw-6,bh-6),
-        Paint()..color=w.color.withValues(alpha:a*0.10));
-    }
+    // 1. Combo dalgası — devre dışı
 
     // 2. Şok dalgaları
     for (final s in _shocks) {
@@ -498,7 +490,7 @@ class ParticleSystem {
       if (s.alpha <= 0) continue;
       canvas.drawCircle(Offset(boardX+s.x, boardY+s.y), s.fontSize*0.9,
         Paint()..color=s.color.withValues(alpha:s.alpha*0.18)
-               ..maskFilter=const MaskFilter.blur(BlurStyle.normal,10));
+               ..maskFilter=const MaskFilter.blur(BlurStyle.normal,6));
       _txt(canvas, s.text, boardX+s.x, boardY+s.y, s.fontSize,
         s.color.withValues(alpha:s.alpha), shadow:s.color, bold:true);
     }
@@ -514,9 +506,6 @@ class ParticleSystem {
     }
 
     canvas.restore(); // kirpmayi kaldir
-
-    // Board disi — kirpmasiz
-    _drawNotifications(canvas, boardX, boardY, bw);
   }
 
   // ─── Arkaplan yıldızları ──────────────────────────────────
@@ -565,7 +554,7 @@ class ParticleSystem {
       // Glow arka plan
       canvas.drawPath(path, Paint()
         ..color=n.color.withValues(alpha:a*0.25)
-        ..maskFilter=const MaskFilter.blur(BlurStyle.normal,8));
+        ..maskFilter=const MaskFilter.blur(BlurStyle.normal,4));
 
       // Ana dolgu
       canvas.drawPath(path, Paint()..color=n.color.withValues(alpha:a*0.88));
@@ -613,7 +602,7 @@ class ParticleSystem {
       140 * sc,
       Paint()
         ..color = l.color.withValues(alpha: a * 0.18)
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 30),
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 15),
     );
 
     // Ana panel
@@ -752,7 +741,7 @@ class ParticleSystem {
     final px = bx+bw/2-w*sc/2, py = by+bh*0.28-h*sc/2;
     final rr = RRect.fromRectAndRadius(Rect.fromLTWH(px,py,w*sc,h*sc), const Radius.circular(14));
     canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromLTWH(px-14,py-14,w*sc+28,h*sc+28), const Radius.circular(20)),
-      Paint()..color=b.color.withValues(alpha:a*0.20)..maskFilter=const MaskFilter.blur(BlurStyle.normal,30));
+      Paint()..color=b.color.withValues(alpha:a*0.20)..maskFilter=const MaskFilter.blur(BlurStyle.normal,15));
     canvas.drawRRect(rr, Paint()..color=const Color(0xFF02010C).withValues(alpha:a*0.94));
     canvas.drawRRect(rr, Paint()..color=b.color.withValues(alpha:a*0.15));
     canvas.drawRRect(rr, Paint()..color=b.color.withValues(alpha:a)..style=PaintingStyle.stroke..strokeWidth=2.5);
@@ -1230,7 +1219,7 @@ class SeasonBgSystem {
         ..color = const Color(0xFFFF8800).withValues(alpha: a * 0.4)
         ..strokeWidth = l.width * 6
         ..style = PaintingStyle.stroke
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 10));
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6));
       canvas.drawPath(path, Paint()
         ..color = const Color(0xFFFFEE00).withValues(alpha: a * 0.9)
         ..strokeWidth = l.width
@@ -1306,7 +1295,7 @@ class SeasonBgSystem {
     for (int i = 0; i < 4; i++) {
       canvas.drawCircle(corners[i], bw * 0.65,
         Paint()..color = cols[i].withValues(alpha: 0.12)
-               ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 30));
+               ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 15));
     }
 
     // Parlayan nokta parçacıkları
@@ -1512,7 +1501,7 @@ class SeasonBgSystem {
       // Glow
       canvas.drawCircle(Offset(sx, sy), s.size * 0.6,
         Paint()..color = Colors.white.withValues(alpha: a * 0.3)
-               ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8));
+               ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4));
     }
 
     // Dedektif ipucu cizgileri - ince baglanti cizgileri

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 // Board boyutları
 const int kCols = 6;
-const int kRows = 14;
+const int kRows = 12;
 const double kCell = 48.0;
 
 // Özel parça tipleri

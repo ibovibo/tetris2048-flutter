@@ -9,6 +9,7 @@ import 'package:flame/input.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'board.dart';
 import 'piece.dart';
@@ -74,10 +75,10 @@ class TetrisGame extends FlameGame with KeyboardEvents, DoubleTapDetector, PanDe
   final Map<int, ui.Picture> _glowCache = {};
   final Map<String, ui.Image> _blockImages = {};
   ui.Image? _bgImage;
+  ui.Image? _scoreBoxImage;
+  ui.Image? _bestScoreBoxImage;
 
   // Swipe/drag kontrolleri
-  double _dragStartX = 0;
-  double _dragStartY = 0;
   double _dragTotalX = 0;
   double _dragTotalY = 0;
   bool _dragLocked = false;
@@ -91,7 +92,9 @@ class TetrisGame extends FlameGame with KeyboardEvents, DoubleTapDetector, PanDe
     board = Board();
     SoundManager.init().then((_) => SoundManager.playGameMusic());
     await _loadBest();
-    try { _bgImage = await images.load('game_bg.jpg'); } catch (_) {}
+    try { _bgImage = await Flame.images.load('oyunekran_bos.png'); } catch (e) {}
+    try { _scoreBoxImage = await Flame.images.load('score_bos.png'); } catch (e) {}
+    try { _bestScoreBoxImage = await Flame.images.load('bestscore_bos.png'); } catch (e) {}
 
     final blockMap = {
       '2': 'blokk_2', '4': 'blokk_4', '8': 'blokk_8',
@@ -108,8 +111,6 @@ class TetrisGame extends FlameGame with KeyboardEvents, DoubleTapDetector, PanDe
         _blockImages[entry.key] = await Flame.images.load('blocks/${entry.value}.png');
       } catch (_) {}
     }
-
-    debugPrint('Yuklenen bloklar: ${_blockImages.keys.toList()}');
 
     _initGame();
   }
@@ -140,7 +141,6 @@ class TetrisGame extends FlameGame with KeyboardEvents, DoubleTapDetector, PanDe
         const Radius.circular(10),
       ),
       Paint()
-        ..color = color.withValues(alpha: 0.30)
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8),
     );
     return recorder.endRecording();
@@ -149,8 +149,13 @@ class TetrisGame extends FlameGame with KeyboardEvents, DoubleTapDetector, PanDe
   @override
   void onGameResize(Vector2 size) {
     super.onGameResize(size);
-    boardX = (size.x - kCols * kCell) / 2; // ortala
-    boardY = 130.0; // skor paneli altında başlasın
+    // Görsel 1080x1920, ekranda scale edilmiş
+    // Izgara görselde yaklaşık x:175, y:245 piksel konumunda (1080x1920 koordinat)
+    final scaleX = size.x / 1080;
+    final scaleY = size.y / 1920;
+    boardX = 175 * scaleX;
+    boardY = 245 * scaleY;
+    // kCell sabit kalır, yalnızca boardX/boardY ayarlanır
   }
 
   void _initGame() {
@@ -200,8 +205,7 @@ class TetrisGame extends FlameGame with KeyboardEvents, DoubleTapDetector, PanDe
 
   @override
   void onPanStart(DragStartInfo info) {
-    _dragStartX = info.eventPosition.global.x;
-    _dragStartY = info.eventPosition.global.y;
+    // start positions intentionally not stored (not used elsewhere)
     _dragTotalX = 0;
     _dragTotalY = 0;
     _dragLocked = false;
@@ -538,7 +542,6 @@ class TetrisGame extends FlameGame with KeyboardEvents, DoubleTapDetector, PanDe
           : combo >= 7 ? const Color(0xFFFF6600)
           : combo >= 4 ? const Color(0xFFFFCC00) : const Color(0xFF88FF44);
       particles.addComboWave(comboColor, combo);
-      particles.addNotification('COMBO x$combo!', comboColor);
       if (combo >= 5)  screenShake = 0.18;
       if (combo >= 8)  screenShake = 0.35;
       if (combo >= 12) { screenShake = 0.55; particles.spawnConfetti(kCols*kCell/2, kRows*kCell/3); }
@@ -552,15 +555,12 @@ class TetrisGame extends FlameGame with KeyboardEvents, DoubleTapDetector, PanDe
   void _checkStreakReward() {
     if (streak == 5) {
       _addScore(500);
-      particles.addNotification('🔥 5 STREAK! +500', const Color(0xFFFF8040));
       particles.spawnConfetti(kCols*kCell/2, kRows*kCell/2);
     } else if (streak == 10) {
       _addScore(2000);
-      particles.addNotification('⚡ 10 STREAK! +2000', const Color(0xFFFFCC00));
       particles.spawnConfetti(kCols*kCell/2, kRows*kCell/2); screenShake = 0.35;
     } else if (streak == 20) {
       _addScore(10000);
-      particles.addNotification('🌟 20 STREAK! +10000', const Color(0xFFC87FFF));
       particles.spawnConfetti(kCols*kCell/2, kRows*kCell/2); screenShake = 0.65;
     }
   }
@@ -575,12 +575,6 @@ class TetrisGame extends FlameGame with KeyboardEvents, DoubleTapDetector, PanDe
 
     if (milestones.contains(val) && !seenMilestones.contains(val)) {
       seenMilestones.add(val);
-      SoundManager.milestone(val);
-      particles.addMilestoneBanner(val, msgs[val] ?? '', tileColor(val));
-      if (val >= 2048) {
-        particles.spawnConfetti(kCols*kCell/2, kRows*kCell/2);
-        screenShake = 0.5;
-      }
     }
 
     if (val >= 32768) {
@@ -661,10 +655,7 @@ class TetrisGame extends FlameGame with KeyboardEvents, DoubleTapDetector, PanDe
     nextQueue.add(PieceGenerator.generate(score, moveCount, season: activeSeason));
     nextQueue.add(PieceGenerator.generate(score, moveCount, season: activeSeason));
 
-    particles.addNotification(
-      '${kSeasons[_pendingSeasonIdx].emoji} ${kSeasons[_pendingSeasonIdx].name} MEVSİMİ!',
-      kSeasons[_pendingSeasonIdx].color,
-    );
+
   }
 
   Future<void> _endSeason() async {
@@ -690,7 +681,6 @@ class TetrisGame extends FlameGame with KeyboardEvents, DoubleTapDetector, PanDe
     }
 
     if (season == 'mystery') _mysteryActive = false;
-    particles.addNotification('Mevsim bitti!', const Color(0xFF5CF5E0));
     particles.seasonBg.setSeason(null);
     activeSeason = null;
   }
@@ -761,7 +751,6 @@ class TetrisGame extends FlameGame with KeyboardEvents, DoubleTapDetector, PanDe
       }
       speed = speed.clamp(100, 540);
       SoundManager.level();
-      particles.addLevelTransition(level, const Color(0xFFF0C040));
       particles.spawnConfetti(kCols*kCell/2, 0);
       screenShake = 0.3;
     }
@@ -1024,33 +1013,6 @@ class TetrisGame extends FlameGame with KeyboardEvents, DoubleTapDetector, PanDe
       canvas.drawLine(Offset(boardX,boardY+r*kCell), Offset(boardX+kCols*kCell,boardY+r*kCell), gridPaint);
     }
 
-    // Joker/combo ambient — board içi hafif renk dalgası
-    if (comboHeat > 0) {
-      final pulse = 0.5 + math.sin(animTime * 4) * 0.5;
-      final comboCol = combo >= 8
-          ? const Color(0xFFFF3366)
-          : combo >= 4
-              ? const Color(0xFFFF8800)
-              : const Color(0xFFC87FFF);
-      canvas.drawRect(
-        Rect.fromLTWH(boardX, boardY, kCols * kCell, kRows * kCell),
-        Paint()..color = comboCol.withValues(alpha: comboHeat * 0.06 * pulse),
-      );
-    }
-
-    // Mevsim rengi — board içini hafifçe boyar
-    if (activeSeason != null) {
-      final si = kSeasons.firstWhere(
-        (s) => s.key == activeSeason,
-        orElse: () => kSeasons[0],
-      );
-      final pulse = 0.4 + math.sin(animTime * 2) * 0.3;
-      canvas.drawRect(
-        Rect.fromLTWH(boardX, boardY, kCols * kCell, kRows * kCell),
-        Paint()..color = si.color.withValues(alpha: 0.04 * pulse),
-      );
-    }
-
     // Hücreler + frozen overlay + max tile glow + pop cells
     for (int r = 0; r < kRows; r++) {
       for (int c = 0; c < kCols; c++) {
@@ -1100,8 +1062,7 @@ class TetrisGame extends FlameGame with KeyboardEvents, DoubleTapDetector, PanDe
       // Büyük dış glow halkası
       final glowR = kCell * (0.8 + progress * 0.6);
       canvas.drawCircle(Offset(cx, cy), glowR,
-        Paint()..color = color.withValues(alpha: alpha * 0.35)
-               ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 18));
+        Paint()..color = color.withValues(alpha: alpha * 0.35));
 
       // İkinci halka — dışa doğru genişliyor
       canvas.drawCircle(Offset(cx, cy), kCell * (0.5 + progress),
@@ -1144,12 +1105,6 @@ class TetrisGame extends FlameGame with KeyboardEvents, DoubleTapDetector, PanDe
     // Board kenarlık — ince beyaz
     canvas.drawRect(Rect.fromLTWH(boardX, boardY, kCols*kCell, kRows*kCell),
       Paint()..color = Colors.white.withValues(alpha: 0.55)..style=PaintingStyle.stroke..strokeWidth=1.5);
-    if (comboHeat > 0.3) {
-      final comboCol = combo >= 8 ? const Color(0xFFFF3366)
-          : combo >= 4 ? const Color(0xFFFF8800) : const Color(0xFFC87FFF);
-      canvas.drawRect(Rect.fromLTWH(boardX-2, boardY-2, kCols*kCell+4, kRows*kCell+4),
-        Paint()..color = comboCol.withValues(alpha: comboHeat * 0.65)..style=PaintingStyle.stroke..strokeWidth=2.5);
-    }
   }
 
   // Max tile etrafında dönen parçacıklar + halo
@@ -1164,14 +1119,12 @@ class TetrisGame extends FlameGame with KeyboardEvents, DoubleTapDetector, PanDe
     // Halo
     final haloR = kCell*0.62 + (tier-3)*3 + sin(t*2)*4;
     canvas.drawCircle(Offset(cx, cy), haloR,
-      Paint()..color = color.withValues(alpha:0.30)
-             ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 12));
+          Paint()..color = color.withValues(alpha:0.30));
 
     // Parlak kenarlık nabzı
     canvas.drawRect(Rect.fromLTWH(boardX+c*kCell+1, boardY+r*kCell+1, kCell-2, kCell-2),
       Paint()..color = color.withValues(alpha:0.65+sin(t*3)*0.35)
-             ..style=PaintingStyle.stroke..strokeWidth=2.5
-             ..maskFilter=const MaskFilter.blur(BlurStyle.normal, 6));
+            ..style=PaintingStyle.stroke..strokeWidth=2.5);
 
     // Dönen parçacıklar (tier >= 5)
     if (tier >= 5) {
@@ -1370,8 +1323,6 @@ class TetrisGame extends FlameGame with KeyboardEvents, DoubleTapDetector, PanDe
     else if (val == kX16) imgKey = 'x16';
     else if (val == kMegaBomb) imgKey = 'megabomb';
 
-    debugPrint('drawTile val=$val imgKey=$imgKey found=${_blockImages.containsKey(imgKey)}');
-
     if (imgKey != null && _blockImages.containsKey(imgKey)) {
       final img = _blockImages[imgKey]!;
       final src = Rect.fromLTWH(0, 0, img.width.toDouble(), img.height.toDouble());
@@ -1508,69 +1459,35 @@ class TetrisGame extends FlameGame with KeyboardEvents, DoubleTapDetector, PanDe
   }
 
   void _drawUI(Canvas canvas) {
-    final s = size;
-    const topBarH = 44.0;
-    const scorePanelH = 68.0;
-    const scorePanelY = topBarH + 8.0;
     final bw = kCols * kCell;
     final rpW = 80.0;
     final rpX = boardX + bw - 4;
 
-    // === ÜST BAR ===
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(Rect.fromLTWH(6, 6, s.x - 12, topBarH - 12), const Radius.circular(12)),
-      Paint()..color = const Color(0xFF1E64C8).withValues(alpha: 0.50));
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(Rect.fromLTWH(16, 11, 36, 26), const Radius.circular(8)),
-      Paint()..color = const Color(0xFF4A9EFF).withValues(alpha: 0.60));
-    _drawTextCentered(canvas, '||', 34, 24, 13, Colors.white, bold: true);
-    _drawTextCentered(canvas, '2048 × TETRİS', s.x / 2, 23, 15, Colors.white, bold: true);
+    // === SKOR PANELİ ===
+    if (_scoreBoxImage != null) {
+      final scoreStr = displayScore.toInt().toString();
+      const scoreFontSize = 16.0;
+      final sw = bw * 0.48;
+      final sh = sw * (_scoreBoxImage!.height / _scoreBoxImage!.width);
+      canvas.drawImageRect(_scoreBoxImage!,
+        Rect.fromLTWH(0, 0, _scoreBoxImage!.width.toDouble(), _scoreBoxImage!.height.toDouble()),
+        Rect.fromLTWH(boardX, boardY - sh - 8, sw, sh),
+        Paint());
+      _drawTextCentered(canvas, scoreStr, boardX + sw/2 + 2, boardY - sh/2 - 10, scoreFontSize,
+        const Color(0xFFFFC944), bold: true, fontWeight: FontWeight.w800);
+    }
 
-    // === SKOR PANELİ — SKOR | EN YÜKSEK | COMBO ===
-    final leftW = bw * 0.31;
-    final midW = bw * 0.38;
-    final rightW = bw - leftW - midW - 4;
-
-    _drawScoreBox(canvas, boardX, scorePanelY, leftW, scorePanelH,
-        'SKOR', displayScore.toInt().toString(), false);
-    _drawScoreBox(canvas, boardX + leftW + 2, scorePanelY, midW, scorePanelH,
-        'EN YÜKSEK', best.toString(), true);
-
-    // COMBO kutusu — level yerine
-    final comboColor = combo >= 12 ? const Color(0xFFFF3366)
-        : combo >= 8 ? const Color(0xFFFF6600)
-        : combo >= 5 ? const Color(0xFFFFCC00)
-        : combo >= 3 ? const Color(0xFF88FF44)
-        : const Color(0xFFC87FFF);
-    _drawScoreBox(canvas, boardX + leftW + midW + 4, scorePanelY, rightW, scorePanelH,
-        'COMBO', 'x$combo', false, valueColor: comboColor);
-
-    // === SAĞ PANEL: SONRAKİ ===
-    _drawRightBox(canvas, rpX, boardY, rpW, 115, 'SONRAKİ');
-    if (_mysteryActive) {
-      final rng2 = math.Random((animTime * 8).toInt());
-      for (int i = 0; i < 80; i++) {
-        final nx = rpX + rng2.nextDouble() * rpW;
-        final ny = boardY + 24 + rng2.nextDouble() * 80;
-        canvas.drawRect(Rect.fromLTWH(nx, ny, 2 + rng2.nextDouble() * 3, 1.5),
-          Paint()..color = Colors.white.withValues(alpha: rng2.nextDouble() * 0.6));
-      }
-      final noSigAlpha = (math.sin(animTime * 3.5) > 0.2) ? 0.8 : 0.1;
-      _drawTextCentered(canvas, 'NO SIGNAL', rpX + rpW / 2, boardY + 64, 8,
-        Colors.white.withValues(alpha: noSigAlpha), bold: true);
-      _drawTextCentered(canvas, '📵', rpX + rpW / 2, boardY + 82, 16,
-        Colors.white.withValues(alpha: noSigAlpha * 0.8));
-    } else {
-      final previewCols = nextPiece.shape[0].length;
-      final previewRows = nextPiece.shape.length;
-      final previewX = rpX + (rpW - previewCols * 20) / 2;
-      final previewY = boardY + 28 + math.max(0.0, 64 - previewRows * 20) / 2;
-      for (int r = 0; r < nextPiece.shape.length; r++) {
-        for (int c = 0; c < nextPiece.shape[r].length; c++) {
-          final v = nextPiece.shape[r][c];
-          if (v != 0) _drawMiniTile(canvas, previewX + c * 20, previewY + r * 20, v);
-        }
-      }
+    if (_bestScoreBoxImage != null) {
+      final bestStr = best.toString();
+      const bestFontSize = 16.0;
+      final bsw = bw * 0.48;
+      final bsh = bsw * (_bestScoreBoxImage!.height / _bestScoreBoxImage!.width);
+      canvas.drawImageRect(_bestScoreBoxImage!,
+        Rect.fromLTWH(0, 0, _bestScoreBoxImage!.width.toDouble(), _bestScoreBoxImage!.height.toDouble()),
+        Rect.fromLTWH(boardX + bw * 0.52, boardY - bsh - 8, bsw, bsh),
+        Paint());
+      _drawTextCentered(canvas, bestStr, boardX + bw * 0.52 + bsw/2 + 10, boardY - bsh/2 - 10, bestFontSize,
+        const Color(0xFFFFC944), bold: true, fontWeight: FontWeight.w800);
     }
 
     // === SAĞ PANEL: MEVSİM ===
@@ -1593,33 +1510,6 @@ class TetrisGame extends FlameGame with KeyboardEvents, DoubleTapDetector, PanDe
           rpX + rpW / 2, siY + 36, 9, sColor.withValues(alpha: pulse), bold: true);
     }
 
-    // === LEVEL BAR — en altta ince çizgi ===
-    final boardBottom = boardY + kRows * kCell;
-    canvas.drawRect(
-      Rect.fromLTWH(boardX, boardBottom + 6, bw, 6),
-      Paint()..color = Colors.black.withValues(alpha: 0.4));
-    canvas.drawRect(
-      Rect.fromLTWH(boardX, boardBottom + 6, bw * _getLevelProgress(), 6),
-      Paint()..color = const Color(0xFF4A9EFF));
-    _drawTextCentered(canvas, 'SEVİYE $level',
-      boardX + bw / 2, boardBottom + 20, 9,
-      Colors.white.withValues(alpha: 0.6));
-  }
-
-  void _drawScoreBox(Canvas canvas, double x, double y, double w, double h,
-      String label, String value, bool highlight, {Color? valueColor}) {
-    final bg = highlight
-        ? const Color(0xFF1E64C8).withValues(alpha: 0.82)
-        : const Color(0xFF1E64C8).withValues(alpha: 0.60);
-    final border = highlight ? const Color(0xFFFFD700) : const Color(0xFF4A9EFF);
-    final vColor = valueColor ?? (highlight ? const Color(0xFFFFD700) : Colors.white);
-    final valSize = highlight ? 20.0 : 16.0;
-    canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromLTWH(x, y, w, h), const Radius.circular(10)),
-      Paint()..color = bg);
-    canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromLTWH(x, y, w, h), const Radius.circular(10)),
-      Paint()..color = border.withValues(alpha: 0.85)..style = PaintingStyle.stroke..strokeWidth = 1.5);
-    _drawTextCentered(canvas, label, x + w / 2, y + 16, 9, Colors.white.withValues(alpha: 0.75));
-    _drawTextCentered(canvas, value, x + w / 2, y + h - 18, valSize, vColor, bold: true);
   }
 
   void _drawRightBox(Canvas canvas, double x, double y, double w, double h, String label) {
@@ -1646,8 +1536,8 @@ class TetrisGame extends FlameGame with KeyboardEvents, DoubleTapDetector, PanDe
     canvas.drawRRect(rect, Paint()..color=Colors.white.withValues(alpha:0.18)..style=PaintingStyle.stroke..strokeWidth=1);
   }
 
-  void _drawTextCentered(Canvas canvas, String text, double cx, double cy, double size, Color color, {bool bold=false}) {
-    final tp = TextPainter(text:TextSpan(text:text,style:TextStyle(fontFamily:'monospace',fontSize:size,fontWeight:bold?FontWeight.bold:FontWeight.normal,color:color)),textDirection:TextDirection.ltr)..layout();
+  void _drawTextCentered(Canvas canvas, String text, double cx, double cy, double size, Color color, {bool bold=false, FontWeight? fontWeight}) {
+    final tp = TextPainter(text:TextSpan(text:text,style:GoogleFonts.poppins(textStyle:TextStyle(fontSize:size,fontWeight:fontWeight ?? (bold ? FontWeight.w800 : FontWeight.w600),color:color))),textDirection:TextDirection.ltr)..layout();
     tp.paint(canvas, Offset(cx-tp.width/2, cy-tp.height/2));
   }
 
@@ -1669,36 +1559,6 @@ class TetrisGame extends FlameGame with KeyboardEvents, DoubleTapDetector, PanDe
 
   void _drawOverlays(Canvas canvas) {
     final bw = kCols*kCell, bh = kRows*kCell;
-
-    // Combo heat — sadece ince board kenarlığı
-    if (comboHeat > 0) {
-      final comboCol = combo >= 8
-          ? const Color(0xFFFF3366)
-          : combo >= 4
-              ? const Color(0xFFFF8800)
-              : const Color(0xFFC87FFF);
-      canvas.drawRect(
-        Rect.fromLTWH(boardX, boardY, bw, bh),
-        Paint()
-          ..color = comboCol.withValues(alpha: comboHeat * 0.5)
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 2,
-      );
-    }
-
-    // Danger — sadece üst kırmızı çizgi
-    int dangerCount = 0;
-    for (int r = 0; r < 4; r++) for (int c = 0; c < kCols; c++) {
-      if (board.get(r,c) != 0) dangerCount++;
-    }
-    if (dangerCount > 0) {
-      final intensity = (dangerCount / 8).clamp(0.0, 1.0);
-      final pulse = 0.5 + math.sin(dangerPulse * 3) * 0.5;
-      canvas.drawRect(
-        Rect.fromLTWH(boardX, boardY, bw, 4),
-        Paint()..color = const Color(0xFFDD1422).withValues(alpha: intensity * pulse * 0.9),
-      );
-    }
 
     // Pause
     if (paused && gameActive) {
