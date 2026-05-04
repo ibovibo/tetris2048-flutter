@@ -41,13 +41,16 @@ class _MenuScreenState extends State<MenuScreen>
     required double heightFactor,
     required EdgeInsets padding,
     bool useFittedBox = true,
+    bool lockTextBounds = false,
     Color? strokeColor,
     double strokeWidth = 0,
   }) {
+    const textScaler = TextScaler.noScaling;
     final label = strokeColor == null || strokeWidth <= 0
         ? Text(
             text,
             textAlign: TextAlign.center,
+            textScaler: textScaler,
             style: style,
             maxLines: useFittedBox ? null : 2,
             overflow: useFittedBox ? null : TextOverflow.visible,
@@ -58,6 +61,7 @@ class _MenuScreenState extends State<MenuScreen>
               Text(
                 text,
                 textAlign: TextAlign.center,
+                textScaler: textScaler,
                 style: style.copyWith(
                   foreground: Paint()
                     ..style = PaintingStyle.stroke
@@ -72,6 +76,7 @@ class _MenuScreenState extends State<MenuScreen>
               Text(
                 text,
                 textAlign: TextAlign.center,
+                textScaler: textScaler,
                 style: style.copyWith(shadows: null),
                 maxLines: useFittedBox ? null : 2,
                 overflow: useFittedBox ? null : TextOverflow.visible,
@@ -89,7 +94,7 @@ class _MenuScreenState extends State<MenuScreen>
           child: Center(
             child: useFittedBox
                 ? FittedBox(
-                    fit: BoxFit.scaleDown,
+                    fit: lockTextBounds ? BoxFit.contain : BoxFit.scaleDown,
                     child: label,
                   )
                 : label,
@@ -150,9 +155,47 @@ class _MenuScreenState extends State<MenuScreen>
                   ),
                 );
               },
-              child: Image.asset(
-                'assets/images/shop_button.png',
-                fit: BoxFit.contain,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  Image.asset(
+                    'assets/images/shopbos.png',
+                    fit: BoxFit.contain,
+                  ),
+                  Positioned.fill(
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        final h = constraints.maxHeight;
+                        return Transform.translate(
+                          offset: Offset(
+                            constraints.maxWidth * 0.03,
+                            -constraints.maxHeight * 0.03,
+                          ),
+                          child: _buildButtonLabelSlot(
+                            text: 'MAĞAZA',
+                            alignment: Alignment.center,
+                            widthFactor: 1.00,
+                            heightFactor: 1.00,
+                            padding: EdgeInsets.only(
+                              left: constraints.maxWidth * 0.30,
+                              right: constraints.maxWidth * 0.10,
+                            ),
+                            useFittedBox: true,
+                            lockTextBounds: true,
+                            strokeColor: const Color(0xFF315A03),
+                            strokeWidth: h * 0.043,
+                            style: TextStyle(
+                              fontSize: h * 0.368,
+                              fontWeight: FontWeight.w900,
+                              color: const Color(0xFFAFE441),
+                              letterSpacing: h * 0.03,
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
