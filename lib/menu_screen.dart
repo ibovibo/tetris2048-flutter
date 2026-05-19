@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import 'game/sound_manager.dart';
 import 'game/tetris_game.dart';
+import 'l10n.dart';
 import 'settings_screen.dart';
 
 class MenuScreen extends StatefulWidget {
@@ -44,6 +45,7 @@ class _MenuScreenState extends State<MenuScreen>
     bool lockTextBounds = false,
     Color? strokeColor,
     double strokeWidth = 0,
+    double fontScale = 1.0,
   }) {
     const textScaler = TextScaler.noScaling;
     final label = strokeColor == null || strokeWidth <= 0
@@ -113,10 +115,7 @@ class _MenuScreenState extends State<MenuScreen>
       body: Stack(
         children: [
           Positioned.fill(
-            child: Image.asset(
-              'assets/images/menu_bos.png',
-              fit: BoxFit.cover,
-            ),
+            child: Image.asset('assets/images/menu_bos.png', fit: BoxFit.cover),
           ),
           Positioned(
             top: size.height * 0.05,
@@ -158,10 +157,7 @@ class _MenuScreenState extends State<MenuScreen>
               child: Stack(
                 alignment: Alignment.center,
                 children: [
-                  Image.asset(
-                    'assets/images/shopbos.png',
-                    fit: BoxFit.contain,
-                  ),
+                  Image.asset('assets/images/shopbos.png', fit: BoxFit.contain),
                   Positioned.fill(
                     child: LayoutBuilder(
                       builder: (context, constraints) {
@@ -172,7 +168,7 @@ class _MenuScreenState extends State<MenuScreen>
                             -constraints.maxHeight * 0.03,
                           ),
                           child: _buildButtonLabelSlot(
-                            text: 'MAĞAZA',
+                            text: L10n.t('shop'),
                             alignment: Alignment.center,
                             widthFactor: 1.00,
                             heightFactor: 1.00,
@@ -204,10 +200,13 @@ class _MenuScreenState extends State<MenuScreen>
             right: size.width * 0.05,
             width: size.width * 0.25,
             child: GestureDetector(
-              onTap: () => Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const SettingsScreen()),
-              ),
+              onTap: () =>
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const SettingsScreen()),
+                  ).then((_) {
+                    if (mounted) setState(() {});
+                  }),
               child: Stack(
                 alignment: Alignment.center,
                 children: [
@@ -218,11 +217,13 @@ class _MenuScreenState extends State<MenuScreen>
                   Positioned.fill(
                     child: LayoutBuilder(
                       builder: (context, constraints) {
-                        final h = constraints.maxHeight;
+                        final settingsText = L10n.t('settings');
+                        final fontScaleValue = settingsText.length > 8 ? 0.75 : settingsText.length > 7 ? 0.85 : 1.0;
+                        final h = constraints.maxHeight * fontScaleValue;
                         return Transform.translate(
                           offset: Offset(0, -constraints.maxHeight * 0.03),
                           child: _buildButtonLabelSlot(
-                            text: 'AYARLAR',
+                            text: settingsText,
                             alignment: Alignment.center,
                             widthFactor: 1.00,
                             heightFactor: 1.00,
@@ -232,13 +233,14 @@ class _MenuScreenState extends State<MenuScreen>
                             ),
                             useFittedBox: false,
                             strokeColor: const Color(0xFF7A4A00),
-                            strokeWidth: h * 0.035,
+                            strokeWidth: constraints.maxHeight * 0.035,
                             style: TextStyle(
                               fontSize: h * 0.32,
                               fontWeight: FontWeight.w900,
                               color: const Color(0xFFF8D57A),
                               letterSpacing: h * 0.03,
                             ),
+                            fontScale: fontScaleValue,
                           ),
                         );
                       },
@@ -255,9 +257,9 @@ class _MenuScreenState extends State<MenuScreen>
             child: GestureDetector(
               onTap: () {
                 SoundManager.stopMusic();
-                Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const GameScreen()),
-                );
+                Navigator.of(
+                  context,
+                ).push(MaterialPageRoute(builder: (_) => const GameScreen()));
               },
               child: Stack(
                 alignment: Alignment.center,
@@ -273,25 +275,25 @@ class _MenuScreenState extends State<MenuScreen>
                         return Transform.translate(
                           offset: Offset(0, -constraints.maxHeight * 0.06),
                           child: _buildButtonLabelSlot(
-                          text: 'BAŞLA',
-                          alignment: Alignment.center,
-                          widthFactor: 0.86,
-                          heightFactor: 0.78,
-                          padding: EdgeInsets.only(
-                            left: constraints.maxWidth * 0.08,
-                            right: constraints.maxWidth * 0.08,
-                            top: constraints.maxHeight * 0.12,
-                            bottom: constraints.maxHeight * 0.10,
-                          ),
-                          useFittedBox: false,
-                          strokeColor: const Color(0xFF9A4A12),
-                          strokeWidth: h * 0.045,
-                          style: TextStyle(
-                            fontSize: h * 0.45,
-                            fontWeight: FontWeight.w900,
-                            color: const Color(0xFFFFF0C8),
-                            letterSpacing: h * 0.05,
-                          ),
+                            text: L10n.t('start'),
+                            alignment: Alignment.center,
+                            widthFactor: 0.86,
+                            heightFactor: 0.78,
+                            padding: EdgeInsets.only(
+                              left: constraints.maxWidth * 0.08,
+                              right: constraints.maxWidth * 0.08,
+                              top: constraints.maxHeight * 0.12,
+                              bottom: constraints.maxHeight * 0.10,
+                            ),
+                            useFittedBox: false,
+                            strokeColor: const Color(0xFF9A4A12),
+                            strokeWidth: h * 0.045,
+                            style: TextStyle(
+                              fontSize: h * 0.45,
+                              fontWeight: FontWeight.w900,
+                              color: const Color(0xFFFFF0C8),
+                              letterSpacing: h * 0.05,
+                            ),
                           ),
                         );
                       },
@@ -330,8 +332,6 @@ class _GameScreenState extends State<GameScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: GameWidget(game: _game),
-    );
+    return Scaffold(body: GameWidget(game: _game));
   }
 }

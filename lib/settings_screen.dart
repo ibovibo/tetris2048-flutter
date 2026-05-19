@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'game/sound_manager.dart';
+import 'l10n.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -53,16 +54,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 children: [
                   GestureDetector(
                     onTap: () => Navigator.pop(context),
-                    child: const Text('← GERİ', style: TextStyle(
-                      fontFamily: 'monospace', fontSize: 12,
-                      color: Color(0xFF5858A0),
-                    )),
+                    child: const Text(
+                      '← GERİ',
+                      style: TextStyle(
+                        fontFamily: 'monospace',
+                        fontSize: 12,
+                        color: Color(0xFF5858A0),
+                      ),
+                    ),
                   ),
                   const Spacer(),
-                  const Text('AYARLAR', style: TextStyle(
-                    fontFamily: 'monospace', fontSize: 16,
-                    fontWeight: FontWeight.bold, color: Color(0xFFC87FFF),
-                  )),
+                  const Text(
+                    'AYARLAR',
+                    style: TextStyle(
+                      fontFamily: 'monospace',
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFFC87FFF),
+                    ),
+                  ),
                   const Spacer(),
                   const SizedBox(width: 60),
                 ],
@@ -76,10 +86,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('SES SEVİYESİ', style: TextStyle(
-                    fontFamily: 'monospace', fontSize: 10,
-                    color: Color(0xFF5CF5E0), letterSpacing: 3,
-                  )),
+                  const Text(
+                    'SES SEVİYESİ',
+                    style: TextStyle(
+                      fontFamily: 'monospace',
+                      fontSize: 10,
+                      color: Color(0xFF5CF5E0),
+                      letterSpacing: 3,
+                    ),
+                  ),
                   const SizedBox(height: 16),
                   Row(
                     children: [
@@ -91,7 +106,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             inactiveTrackColor: const Color(0xFF1A0A3A),
                             thumbColor: const Color(0xFFC87FFF),
                             overlayColor: const Color(0x33C87FFF),
-                            thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 10),
+                            thumbShape: const RoundSliderThumbShape(
+                              enabledThumbRadius: 10,
+                            ),
                             trackHeight: 4,
                           ),
                           child: Slider(
@@ -110,10 +127,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ],
                   ),
                   Center(
-                    child: Text('${(_volume * 100).round()}%', style: const TextStyle(
-                      fontFamily: 'monospace', fontSize: 14,
-                      color: Color(0xFFC87FFF), fontWeight: FontWeight.bold,
-                    )),
+                    child: Text(
+                      '${(_volume * 100).round()}%',
+                      style: const TextStyle(
+                        fontFamily: 'monospace',
+                        fontSize: 14,
+                        color: Color(0xFFC87FFF),
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -136,6 +158,43 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ],
               ),
             ),
+
+            const SizedBox(height: 16),
+
+            _buildPanel(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'DİL / LANGUAGE',
+                    style: TextStyle(
+                      fontFamily: 'monospace',
+                      fontSize: 10,
+                      color: Color(0xFF5CF5E0),
+                      letterSpacing: 3,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      _buildLangButton('tr', '🇹🇷 TR'),
+                      _buildLangButton('en', '🇬🇧 EN'),
+                      _buildLangButton('es', '🇪🇸 ES'),
+                      _buildLangButton('pt', '🇧🇷 PT'),
+                      _buildLangButton('de', '🇩🇪 DE'),
+                      _buildLangButton('fr', '🇫🇷 FR'),
+                      _buildLangButton('it', '🇮🇹 IT'),
+                      _buildLangButton('ru', '🇷🇺 RU'),
+                      _buildLangButton('ja', '🇯🇵 JA'),
+                      _buildLangButton('ko', '🇰🇷 KO'),
+                      _buildLangButton('pl', '🇵🇱 PL'),
+                    ],
+                  ),
+                ],
+              ),
+            ),
           ],
         ),
       ),
@@ -149,7 +208,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
       decoration: BoxDecoration(
         color: const Color(0xFF0C0820),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFF5CF5E0).withValues(alpha: 0.15)),
+        border: Border.all(
+          color: const Color(0xFF5CF5E0).withValues(alpha: 0.15),
+        ),
       ),
       child: child,
     );
@@ -158,10 +219,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Widget _buildToggle(String label, bool value, Function(bool) onChanged) {
     return Row(
       children: [
-        Text(label, style: const TextStyle(
-          fontFamily: 'monospace', fontSize: 12,
-          color: Colors.white, letterSpacing: 2,
-        )),
+        Text(
+          label,
+          style: const TextStyle(
+            fontFamily: 'monospace',
+            fontSize: 12,
+            color: Colors.white,
+            letterSpacing: 2,
+          ),
+        ),
         const Spacer(),
         GestureDetector(
           onTap: () => onChanged(!value),
@@ -173,7 +239,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
               borderRadius: BorderRadius.circular(14),
               color: value ? const Color(0xFFC87FFF) : const Color(0xFF1A0A3A),
               border: Border.all(
-                color: value ? const Color(0xFFC87FFF) : const Color(0xFF333366),
+                color: value
+                    ? const Color(0xFFC87FFF)
+                    : const Color(0xFF333366),
               ),
             ),
             child: AnimatedAlign(
@@ -192,6 +260,42 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildLangButton(String lang, String label) {
+    final selected = L10n.lang == lang;
+    return SizedBox(
+      width: 76,
+      child: GestureDetector(
+        onTap: () async {
+          await L10n.setLang(lang);
+          setState(() {});
+        },
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          decoration: BoxDecoration(
+            color: selected ? const Color(0xFFC87FFF) : const Color(0xFF1A0A3A),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: selected
+                  ? const Color(0xFFC87FFF)
+                  : const Color(0xFF333366),
+            ),
+          ),
+          child: Center(
+            child: Text(
+              label,
+              style: TextStyle(
+                fontFamily: 'monospace',
+                fontSize: 12,
+                color: selected ? Colors.white : const Color(0xFF5858A0),
+                fontWeight: selected ? FontWeight.bold : FontWeight.normal,
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

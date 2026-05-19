@@ -86,7 +86,7 @@ class PieceGenerator {
         if (roll < pBomb+pMegaBomb+pIce+pX2+pX4+pX8+pX16) return _multiType(kX16);
         if (_rng.nextDouble() < pJoker) return _multiType(kJoker);
         if (_rng.nextDouble() < pStar) return _single(kStar);
-        if (_rng.nextDouble() < 0.05) return _single(_rng.nextBool() ? kShuffleRow : kShuffleCol);
+        if (_rng.nextDouble() < 0.05) return _single(kChaos);
       }
     }
 

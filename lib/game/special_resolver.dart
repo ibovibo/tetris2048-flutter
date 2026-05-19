@@ -13,6 +13,8 @@ class SpecialResolver {
   final void Function()? playMegaBombSfx;
   final void Function()? playIceJokerSfx;
   final void Function()? playStarSfx;
+  final void Function()? onJokerTriggered;
+  final void Function(double gain)? onMeterGain;
 
   SpecialResolver({
     required this.board,
@@ -25,13 +27,15 @@ class SpecialResolver {
     this.playMegaBombSfx,
     this.playIceJokerSfx,
     this.playStarSfx,
+    this.onJokerTriggered,
+    this.onMeterGain,
   });
 
   void resolveAll() {
     _resolveBombs();
     _resolveMegaBombs();
     _resolveIce();
-    _resolveShuffles();
+    _resolveChaos();
     _resolveJokers();
     _resolveStar();
     _resolveMultipliers(kX2, 2);
@@ -109,39 +113,40 @@ class SpecialResolver {
     }
   }
 
-  // ── SHUFFLE ──────────────────────────────────────────────
-  void _resolveShuffles() {
+  void _resolveChaos() {
     final rng = Random();
+    bool triggered = false;
     for (int r = 0; r < kRows; r++) {
       for (int c = 0; c < kCols; c++) {
-        if (board.get(r, c) == kShuffleRow) {
+        if (board.get(r, c) == kChaos) {
           board.set(r, c, 0);
-          final vals = <int>[];
-          for (int cc = 0; cc < kCols; cc++) {
-            if (board.get(r, cc) != 0) vals.add(board.get(r, cc));
-          }
-          vals.shuffle(rng);
-          int idx = 0;
-          for (int cc = 0; cc < kCols; cc++) {
-            if (board.get(r, cc) != 0) { board.set(r, cc, vals[idx++]); }
-          }
-          showFloat('↔ KARISTIRILDI!');
-        }
-        if (board.get(r, c) == kShuffleCol) {
-          board.set(r, c, 0);
-          final vals = <int>[];
-          for (int rr = 0; rr < kRows; rr++) {
-            if (board.get(rr, c) != 0) vals.add(board.get(rr, c));
-          }
-          vals.shuffle(rng);
-          int idx = 0;
-          for (int rr = 0; rr < kRows; rr++) {
-            if (board.get(rr, c) != 0) { board.set(rr, c, vals[idx++]); }
-          }
-          showFloat('↕ KARISTIRILDI!');
+          triggered = true;
         }
       }
     }
+    if (!triggered) return;
+
+    // Tüm board'daki blokları topla
+    final vals = <int>[];
+    final positions = <List<int>>[];
+    for (int r = 0; r < kRows; r++) {
+      for (int c = 0; c < kCols; c++) {
+        final v = board.get(r, c);
+        if (v != 0 && !isObstacle(v)) {
+          vals.add(v);
+          positions.add([r, c]);
+          board.set(r, c, 0);
+        }
+      }
+    }
+
+    // Rastgele karıştır ve geri yerleştir
+    vals.shuffle(rng);
+    for (int i = 0; i < positions.length; i++) {
+      board.set(positions[i][0], positions[i][1], vals[i]);
+    }
+
+    showFloat('💥 KAOS!');
   }
 
   // ── JOKER — komşu max değeri 2 katlar ────────────────────
@@ -162,9 +167,12 @@ class SpecialResolver {
         }
         if (bestR >= 0) {
           claimed.add('$bestR,$bestC');
-          board.set(bestR, bestC, bestVal * 2);
+          final newVal = bestVal * 2;
+          board.set(bestR, bestC, newVal);
           addScore(bestVal);
-          spawnParticle(bestC * kCell + kCell/2, bestR * kCell + kCell/2, bestVal * 2);
+          spawnParticle(bestC * kCell + kCell/2, bestR * kCell + kCell/2, newVal);
+          onMeterGain?.call(_getMergeFillStatic(newVal));
+          onJokerTriggered?.call();
           showFloat('JOKER!');
         }
       }
@@ -237,6 +245,7 @@ class SpecialResolver {
           board.set(nr, nc, newVal);
           addScore(newVal);
           spawnParticle(nc * kCell + kCell/2, nr * kCell + kCell/2, newVal);
+          onMeterGain?.call(_getMergeFillStatic(newVal));
           hit = true;
         }
         // Komşu yoksa sütunun en altından al
@@ -245,7 +254,9 @@ class SpecialResolver {
             final v = board.get(nr, c);
             if (v > 0 && !isObstacle(v) && !claimed.contains('$nr,$c')) {
               claimed.add('$nr,$c');
-              board.set(nr, c, (v * mult).clamp(0, 32768));
+              final newVal = (v * mult).clamp(0, 32768);
+              board.set(nr, c, newVal);
+              onMeterGain?.call(_getMergeFillStatic(newVal));
               break;
             }
           }
@@ -253,5 +264,29 @@ class SpecialResolver {
         showFloat('×$mult!');
       }
     }
+  }
+
+  static double _getMergeFillStatic(int value) {
+    const table = {
+      4: 0.5,
+      8: 0.75,
+      16: 1.0,
+      32: 1.25,
+      64: 1.5,
+      128: 2.0,
+      256: 2.75,
+      512: 3.75,
+      1024: 5.0,
+      2048: 6.5,
+      4096: 8.5,
+      8192: 11.0,
+      16384: 14.0,
+      32768: 17.5,
+    };
+    if (table.containsKey(value)) return table[value]!;
+    if (value > 32768) {
+      return 17.5 + (log(value / 32768) / log(2)) * 5.0;
+    }
+    return 0.5;
   }
 }

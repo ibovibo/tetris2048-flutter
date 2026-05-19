@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'constants.dart';
 
 class Board {
@@ -40,11 +41,61 @@ class Board {
     }
   }
 
+  void flipVertical(Map<String, int> frozenSet) {
+    debugPrint('flipVertical çağrıldı — cells[0][0]=${cells[0][0]}, cells[${kRows - 1}][0]=${cells[kRows - 1][0]}');
+    for (int c = 0; c < kCols; c++) {
+      int top = 0;
+      int bottom = kRows - 1;
+      while (top < bottom) {
+        final tmp = cells[top][c];
+        cells[top][c] = cells[bottom][c];
+        cells[bottom][c] = tmp;
+
+        final tk = '$top,$c';
+        final bk = '$bottom,$c';
+        final tFrozen = frozenSet[tk];
+        final bFrozen = frozenSet[bk];
+        frozenSet.remove(tk);
+        frozenSet.remove(bk);
+        if (tFrozen != null) frozenSet[bk] = tFrozen;
+        if (bFrozen != null) frozenSet[tk] = bFrozen;
+
+        top++;
+        bottom--;
+      }
+    }
+    debugPrint('flipVertical sonrası — cells[0][0]=${cells[0][0]}, cells[${kRows - 1}][0]=${cells[kRows - 1][0]}');
+  }
+
+  void applyReverseGravity(Map<String, int> frozenSet) {
+    for (int c = 0; c < kCols; c++) {
+      int writeRow = 0; // üstten başla — bloklar yukarı çekilir
+      for (int r = 0; r < kRows; r++) {
+        final v = cells[r][c];
+        if (v != 0 && !isObstacle(v)) {
+          if (writeRow != r) {
+            cells[writeRow][c] = v;
+            cells[r][c] = 0;
+            final ok = '$r,$c', nk = '$writeRow,$c';
+            if (frozenSet.containsKey(ok)) {
+              frozenSet[nk] = frozenSet[ok]!;
+              frozenSet.remove(ok);
+            }
+          }
+          writeRow++;
+        } else if (isObstacle(v)) {
+          writeRow = r + 1;
+        }
+      }
+    }
+  }
+
   List<MergeEvent> resolveMerges(
     Map<String, int> frozenSet,
     Map<int, int> frozenCols,
-    List<MultiplierLine> multiplierLines,
-  ) {
+    List<MultiplierLine> multiplierLines, {
+    bool reverseGravity = false,
+  }) {
     final events = <MergeEvent>[];
     bool anyMerged = true;
     int cycles = 0;
@@ -111,7 +162,11 @@ class Board {
         }
       }
 
-      applyGravity(frozenSet);
+      if (reverseGravity) {
+        applyReverseGravity(frozenSet);
+      } else {
+        applyGravity(frozenSet);
+      }
     }
 
     return events;

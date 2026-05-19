@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'l10n.dart';
 import 'menu_screen.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await L10n.load();
   runApp(const MyApp());
 }
 

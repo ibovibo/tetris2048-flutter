@@ -801,31 +801,28 @@ class SeasonBgSystem {
   double _time = 0;
 
   final List<SnowFlake> _flakes = [];
-  final List<Lightning> _lightnings = [];
-  double _lightningTimer = 0;
   final List<_BgParticle> _bgParticles = [];
   final List<_ShuffleSymbol> _shuffleSymbols = [];
   final List<_BombDrop> _bombDrops = [];
-  final List<_MultiplierDrop> _multiplierDrops = [];
+  final List<_GravityDrop> _gravityDrops = [];
 
   void setSeason(String? s) {
     if (season == s) return;
     season = s;
     _flakes.clear();
-    _lightnings.clear();
     _bgParticles.clear();
     _shuffleSymbols.clear();
     _bombDrops.clear();
-    _multiplierDrops.clear();
-    _lightningTimer = 0;
+    _gravityDrops.clear();
 
     if (s == 'bomb') _initBombDrops();
     if (s == 'ice') _initSnow();
-    if (s == 'multiplier') {
-      _initMultiplierBg();
-      _initMultiplierDrops();
+    if (s == 'gravity') {
+      _initGravityBg();
+      _initGravityDrops();
     }
-    if (s == 'shuffle') _initShuffleBg();
+    if (s == 'chaos') _initShuffleBg();
+    if (s == 'mirror') _initMirrorBg();
     if (s == 'mystery') _initShuffleBg(); // soru isaretleri icin sembol listesini override et
 
     if (s == 'mystery') {
@@ -856,11 +853,11 @@ class SeasonBgSystem {
     }
   }
 
-  void _initMultiplierBg() {
+  void _initGravityBg() {
     final cols = [
-      const Color(0xFFC87FFF), const Color(0xFF5CF5E0),
-      const Color(0xFFFF6FA8), const Color(0xFFF5E05C),
-      const Color(0xFF44FF99), const Color(0xFFFF8833),
+      const Color(0xFF7B4DFF), const Color(0xFFB58CFF),
+      const Color(0xFF5DE4FF), const Color(0xFF2D1B5E),
+      const Color(0xFFE7D8FF), const Color(0xFF8844FF),
     ];
     for (int i = 0; i < 40; i++) {
       _bgParticles.add(_BgParticle(
@@ -902,15 +899,15 @@ class SeasonBgSystem {
     }
   }
 
-  void _initMultiplierDrops() {
-    final symbols = ['×2', '×4', '×8', '×16'];
+  void _initGravityDrops() {
+    final symbols = ['✦', '★', '✧', '✩'];
     final colors = [
-      const Color(0xFFFFD700), const Color(0xFFFF8C00),
-      const Color(0xFFFF3CB4), const Color(0xFFC87FFF),
+      const Color(0xFFB58CFF), const Color(0xFF7B4DFF),
+      const Color(0xFF5DE4FF), const Color(0xFFE7D8FF),
     ];
     for (int i = 0; i < 10; i++) {
       final idx = i % 4;
-      _multiplierDrops.add(_MultiplierDrop(
+      _gravityDrops.add(_GravityDrop(
         x: _rng.nextDouble(),
         y: _rng.nextDouble(),
         speed: 0.002 + _rng.nextDouble() * 0.004,
@@ -922,22 +919,25 @@ class SeasonBgSystem {
     }
   }
 
-  Lightning _makeLightning(double boardX, double boardY, double bw, double bh) {
-    final x = boardX + _rng.nextDouble() * bw;
-    final points = <Offset>[];
-    double cy = boardY;
-    points.add(Offset(x, cy));
-    while (cy < boardY + bh) {
-      cy += 20 + _rng.nextDouble() * 40;
-      final nx = x + (_rng.nextDouble() - 0.5) * 60;
-      points.add(Offset(nx.clamp(boardX, boardX+bw), cy));
+  void _initMirrorBg() {
+    final colors = [
+      const Color(0xFF44CCFF), const Color(0xFFAADDFF),
+      const Color(0xFFCCEEFF), const Color(0xFFFFFFFF),
+      const Color(0xFF88EEFF), const Color(0xFF66BBFF),
+    ];
+    for (int i = 0; i < 32; i++) {
+      // Sol ve sağ yarıya simetrik yerleştir (x 0..0.45 arası)
+      final xFrac = 0.05 + _rng.nextDouble() * 0.40;
+      _bgParticles.add(_BgParticle(
+        x: xFrac,
+        y: _rng.nextDouble(),
+        vx: 0,
+        vy: (_rng.nextDouble() - 0.5) * 0.001,
+        size: 2 + _rng.nextDouble() * 5,
+        color: colors[_rng.nextInt(colors.length)],
+        phase: _rng.nextDouble() * math.pi * 2,
+      ));
     }
-    return Lightning(
-      x: x,
-      points: points,
-      color: const Color(0xFFFF8800),
-      width: 1.5 + _rng.nextDouble() * 2,
-    );
   }
 
   void update(double dt, double boardX, double boardY, double bw, double bh) {
@@ -962,22 +962,16 @@ class SeasonBgSystem {
       }
     }
 
-    if (season == 'speed') {
-      _lightningTimer -= dt;
-      if (_lightningTimer <= 0) {
-        _lightningTimer = 0.15 + _rng.nextDouble() * 0.35;
-        _lightnings.add(_makeLightning(boardX, boardY, bw, bh));
-        if (_rng.nextDouble() > 0.5) {
-          _lightnings.add(_makeLightning(boardX, boardY, bw, bh));
-        }
-      }
-      _lightnings.removeWhere((l) => l.life <= 0);
-      for (final l in _lightnings) {
-        l.update(dt);
+    if (season == 'mirror') {
+      for (final p in _bgParticles) {
+        p.phase += dt * 2.2;
+        p.y += p.vy;
+        if (p.y < 0) p.y = 1.0;
+        if (p.y > 1) p.y = 0.0;
       }
     }
 
-    if (season == 'multiplier') {
+    if (season == 'gravity') {
       for (final p in _bgParticles) {
         p.x += p.vx;
         p.y += p.vy;
@@ -987,7 +981,7 @@ class SeasonBgSystem {
         if (p.y < 0) p.y = 1.0;
         if (p.y > 1) p.y = 0.0;
       }
-      for (final d in _multiplierDrops) {
+      for (final d in _gravityDrops) {
         d.y += d.speed;
         d.phase += dt * 1.5;
         if (d.y > 1.1) { d.y = -0.05; d.x = _rng.nextDouble(); }
@@ -1021,11 +1015,11 @@ class SeasonBgSystem {
       case 'bomb':
         _renderBomb(canvas, boardX, boardY, bw, bh);
         break;
-      case 'speed':
-        _renderSpeed(canvas, boardX, boardY, bw, bh);
+      case 'mirror':
+        _renderMirror(canvas, boardX, boardY, bw, bh);
         break;
-      case 'multiplier':
-        _renderMultiplier(canvas, boardX, boardY, bw, bh);
+      case 'gravity':
+        _renderGravity(canvas, boardX, boardY, bw, bh);
         break;
       case 'shuffle':
         _renderShuffle(canvas, boardX, boardY, bw, bh);
@@ -1199,175 +1193,150 @@ class SeasonBgSystem {
              ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 15));
   }
 
-  void _renderSpeed(Canvas canvas, double bx, double by, double bw, double bh) {
-    // Turuncu tonu
+  void _renderMirror(Canvas canvas, double bx, double by, double bw, double bh) {
+    final pulse = 0.5 + math.sin(_time * 1.8) * 0.3;
+    final lineX = bx + bw / 2;
+
+    // Gümüş/mavi zemin tonu
     canvas.drawRect(Rect.fromLTWH(bx, by, bw, bh),
-      Paint()..color = const Color(0xFFFF8800).withValues(alpha: 0.05));
+      Paint()..color = const Color(0xFF44CCFF).withValues(alpha: 0.06 * pulse));
 
-    // Şimşekler
-    for (final l in _lightnings) {
-      final a = l.life.clamp(0.0, 1.0);
-      final path = Path();
-      for (int i = 0; i < l.points.length; i++) {
-        if (i == 0) {
-          path.moveTo(l.points[i].dx, l.points[i].dy);
-        } else {
-          path.lineTo(l.points[i].dx, l.points[i].dy);
-        }
-      }
-      canvas.drawPath(path, Paint()
-        ..color = const Color(0xFFFF8800).withValues(alpha: a * 0.4)
-        ..strokeWidth = l.width * 6
-        ..style = PaintingStyle.stroke
+    // Ortadaki ayna çizgisi — glow
+    canvas.drawLine(Offset(lineX, by), Offset(lineX, by + bh),
+      Paint()
+        ..color = const Color(0xFFAAEEFF).withValues(alpha: pulse * 0.35)
+        ..strokeWidth = 5
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6));
-      canvas.drawPath(path, Paint()
-        ..color = const Color(0xFFFFEE00).withValues(alpha: a * 0.9)
-        ..strokeWidth = l.width
-        ..style = PaintingStyle.stroke);
-      canvas.drawPath(path, Paint()
-        ..color = Colors.white.withValues(alpha: a * 0.8)
-        ..strokeWidth = l.width * 0.4
-        ..style = PaintingStyle.stroke);
+    // Parlak ince çizgi üstte
+    canvas.drawLine(Offset(lineX, by), Offset(lineX, by + bh),
+      Paint()
+        ..color = Colors.white.withValues(alpha: pulse * 0.7)
+        ..strokeWidth = 1.2);
+
+    // Simetrik parıltı parçacıkları
+    for (final p in _bgParticles) {
+      final a = (0.15 + math.sin(p.phase) * 0.5).clamp(0.0, 0.7);
+      final cx = bx + p.x * bw;       // sol yarı
+      final cy = by + p.y * bh;
+      final mirrorCx = bx + bw - p.x * bw; // ayna (sağ yarı)
+      final sz = p.size / 2;
+
+      canvas.drawCircle(Offset(cx, cy), sz,
+        Paint()..color = p.color.withValues(alpha: a));
+      canvas.drawCircle(Offset(cx, cy), sz * 2.5,
+        Paint()..color = p.color.withValues(alpha: a * 0.18)
+               ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4));
+      canvas.drawCircle(Offset(mirrorCx, cy), sz,
+        Paint()..color = p.color.withValues(alpha: a));
+      canvas.drawCircle(Offset(mirrorCx, cy), sz * 2.5,
+        Paint()..color = p.color.withValues(alpha: a * 0.18)
+               ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4));
     }
 
-    // Küçük chevronlar — ekrana dağılmış
-    for (int col = 0; col < 3; col++) {
-      for (int layer = 0; layer < 4; layer++) {
-        final t = (_time * 1.8 + layer * 0.28 + col * 0.15) % 1.0;
-        final a = math.sin(t * math.pi) * 0.30;
-        if (a <= 0) continue;
-
-        final colX = bx + (col + 0.5) * (bw / 3);
-        final offsetY = by + t * bh;
-        const arrowW = 22.0;
-        const arrowH = 12.0;
-
-        final color = layer % 2 == 0
-            ? const Color(0xFFFFCC00)
-            : const Color(0xFFFF8800);
-
-        final path = Path();
-        path.moveTo(colX - arrowW / 2, offsetY - arrowH / 2);
-        path.lineTo(colX, offsetY + arrowH / 2);
-        path.lineTo(colX + arrowW / 2, offsetY - arrowH / 2);
-
-        canvas.drawPath(path, Paint()
-          ..color = color.withValues(alpha: a * 0.25)
-          ..strokeWidth = 4
-          ..style = PaintingStyle.stroke
-          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4));
-        canvas.drawPath(path, Paint()
-          ..color = color.withValues(alpha: a)
-          ..strokeWidth = 1.2
-          ..style = PaintingStyle.stroke);
-      }
+    // Sol-sağ köşelerde simetrik parıltı halkaları
+    for (int i = 0; i < 3; i++) {
+      final t = (_time * 0.7 + i * 0.33) % 1.0;
+      final r = t * bw * 0.5;
+      final a = math.sin(t * math.pi) * 0.12;
+      canvas.drawCircle(Offset(bx, by + bh * (0.2 + i * 0.3)), r,
+        Paint()..color = const Color(0xFF44CCFF).withValues(alpha: a)
+               ..style = PaintingStyle.stroke..strokeWidth = 1.5);
+      canvas.drawCircle(Offset(bx + bw, by + bh * (0.2 + i * 0.3)), r,
+        Paint()..color = const Color(0xFF44CCFF).withValues(alpha: a)
+               ..style = PaintingStyle.stroke..strokeWidth = 1.5);
     }
-
-    // Enerji dalgası
-    final energyR = ((_time * 1.5) % 1.0);
-    canvas.drawCircle(Offset(bx+bw/2, by+bh/2), energyR * bw,
-      Paint()..color = const Color(0xFFFF8800).withValues(alpha: (1-energyR) * 0.10)
-             ..style = PaintingStyle.stroke..strokeWidth = 2);
   }
 
-  void _renderMultiplier(Canvas canvas, double bx, double by, double bw, double bh) {
-    final cx = bx + bw/2, cy = by + bh/2;
+  void _renderGravity(Canvas canvas, double bx, double by, double bw, double bh) {
+    final cx = bx + bw / 2, cy = by + bh / 2;
 
-    // Dönen gökkuşağı arka plan — sektörler halinde
+    // Mor kozmik çekim alanı
+    canvas.drawRect(Rect.fromLTWH(bx, by, bw, bh),
+      Paint()..color = const Color(0xFF14081F).withValues(alpha: 0.30));
+
+    // Dönen halka katmanları
     for (int i = 0; i < 8; i++) {
-      final angle = _time * 0.5 + i * math.pi / 4;
-      final hue = (_time * 60 + i * 45) % 360;
-      final color = HSVColor.fromAHSV(1.0, hue, 1.0, 1.0).toColor();
-      final rect = Rect.fromCenter(center: Offset(cx, cy), width: bw*3, height: bh*3);
-      canvas.drawArc(rect, angle, math.pi/4, true,
-        Paint()..color = color.withValues(alpha: 0.06));
+      final angle = _time * 0.35 + i * math.pi / 4;
+      final hue = (270 + _time * 18 + i * 10) % 360;
+      final color = HSVColor.fromAHSV(1.0, hue, 0.70, 1.0).toColor();
+      final rect = Rect.fromCenter(center: Offset(cx, cy), width: bw * 3, height: bh * 3);
+      canvas.drawArc(rect, angle, math.pi / 4, true,
+        Paint()..color = color.withValues(alpha: 0.08));
     }
 
-    // Köşe glow — sürekli renk değişimi
+    // Köşe glow — mor/kozmik
     final cols = List.generate(4, (i) {
-      final hue = (_time * 80 + i * 90) % 360;
-      return HSVColor.fromAHSV(1.0, hue, 1.0, 1.0).toColor();
+      final hue = (255 + _time * 16 + i * 14) % 360;
+      return HSVColor.fromAHSV(1.0, hue, 0.75, 1.0).toColor();
     });
     final corners = [
-      Offset(bx, by), Offset(bx+bw, by),
-      Offset(bx, by+bh), Offset(bx+bw, by+bh),
+      Offset(bx, by), Offset(bx + bw, by),
+      Offset(bx, by + bh), Offset(bx + bw, by + bh),
     ];
     for (int i = 0; i < 4; i++) {
       canvas.drawCircle(corners[i], bw * 0.65,
-        Paint()..color = cols[i].withValues(alpha: 0.12)
-               ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 15));
+        Paint()..color = cols[i].withValues(alpha: 0.16)
+               ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 16));
     }
 
-    // Parlayan nokta parçacıkları
+    // Kozmik partiküller
     for (final p in _bgParticles) {
       final px = bx + p.x * bw;
       final py = by + p.y * bh;
       final pulse = (0.3 + math.sin(p.phase + _time * 4) * 0.7).clamp(0.0, 1.0);
-      final hue = (p.phase * 57 + _time * 60) % 360;
-      final pColor = HSVColor.fromAHSV(1.0, hue, 1.0, 1.0).toColor();
+      final hue = (265 + p.phase * 18 + _time * 20) % 360;
+      final pColor = HSVColor.fromAHSV(1.0, hue, 0.85, 1.0).toColor();
 
-      // Büyük glow
       canvas.drawCircle(Offset(px, py), p.size * 2.5 * pulse,
         Paint()..color = pColor.withValues(alpha: pulse * 0.15)
                ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 12));
-      // Parlak merkez
       canvas.drawCircle(Offset(px, py), p.size * 0.4,
         Paint()..color = Colors.white.withValues(alpha: pulse * 0.9));
-      // Renkli halka
       canvas.drawCircle(Offset(px, py), p.size * pulse,
         Paint()..color = pColor.withValues(alpha: pulse * 0.6)
                ..style = PaintingStyle.stroke..strokeWidth = 2);
     }
 
-    // Yıldız parıltıları — rastgele
+    // Dönen yıldızlar
     for (int i = 0; i < 8; i++) {
       final t = (_time * 2 + i * 0.4) % 1.0;
       final starX = bx + ((math.sin(i * 1.7 + _time * 0.3) + 1) / 2) * bw;
       final starY = by + ((math.cos(i * 2.1 + _time * 0.2) + 1) / 2) * bh;
       final starA = math.sin(t * math.pi) * 0.7;
-      final hue2 = (_time * 120 + i * 45) % 360;
-      final starColor = HSVColor.fromAHSV(1.0, hue2, 1.0, 1.0).toColor();
+      final starHue = (250 + _time * 30 + i * 12) % 360;
+      final starColor = HSVColor.fromAHSV(1.0, starHue, 0.75, 1.0).toColor();
 
-      // Yıldız çizgileri
       final sp = Paint()..color = starColor.withValues(alpha: starA)..strokeWidth = 1.5;
-      canvas.drawLine(Offset(starX-8, starY), Offset(starX+8, starY), sp);
-      canvas.drawLine(Offset(starX, starY-8), Offset(starX, starY+8), sp);
-      canvas.drawLine(Offset(starX-5, starY-5), Offset(starX+5, starY+5), sp);
-      canvas.drawLine(Offset(starX+5, starY-5), Offset(starX-5, starY+5), sp);
+      canvas.drawLine(Offset(starX - 8, starY), Offset(starX + 8, starY), sp);
+      canvas.drawLine(Offset(starX, starY - 8), Offset(starX, starY + 8), sp);
+      canvas.drawLine(Offset(starX - 5, starY - 5), Offset(starX + 5, starY + 5), sp);
+      canvas.drawLine(Offset(starX + 5, starY - 5), Offset(starX - 5, starY + 5), sp);
       canvas.drawCircle(Offset(starX, starY), 3,
         Paint()..color = Colors.white.withValues(alpha: starA));
     }
 
-    // Gökten yağan çarpan blokları
-    for (final d in _multiplierDrops) {
+    // Yörüngeden süzülen yıldız parçacıkları
+    for (final d in _gravityDrops) {
       final dx = bx + d.x * bw;
       final dy = by + d.y * bh;
       final a = (0.4 + math.sin(d.phase) * 0.25).clamp(0.15, 0.7);
       const s = 28.0;
 
-      // Renkli blok arka planı
       canvas.drawRRect(
-        RRect.fromRectAndRadius(Rect.fromLTWH(dx-s/2, dy-s/2, s, s), const Radius.circular(6)),
+        RRect.fromRectAndRadius(Rect.fromLTWH(dx - s / 2, dy - s / 2, s, s), const Radius.circular(6)),
         Paint()..color = d.color.withValues(alpha: a * 0.85));
-
-      // Üst parlaklık
       canvas.drawRRect(
-        RRect.fromRectAndRadius(Rect.fromLTWH(dx-s/2+2, dy-s/2+2, s-4, s*0.4), const Radius.circular(4)),
+        RRect.fromRectAndRadius(Rect.fromLTWH(dx - s / 2 + 2, dy - s / 2 + 2, s - 4, s * 0.4), const Radius.circular(4)),
         Paint()..color = Colors.white.withValues(alpha: a * 0.35));
-
-      // Kenarlık
       canvas.drawRRect(
-        RRect.fromRectAndRadius(Rect.fromLTWH(dx-s/2, dy-s/2, s, s), const Radius.circular(6)),
+        RRect.fromRectAndRadius(Rect.fromLTWH(dx - s / 2, dy - s / 2, s, s), const Radius.circular(6)),
         Paint()..color = Colors.white.withValues(alpha: a * 0.3)
                ..style = PaintingStyle.stroke..strokeWidth = 1.2);
-
-      // Dış glow
       canvas.drawRRect(
-        RRect.fromRectAndRadius(Rect.fromLTWH(dx-s/2-3, dy-s/2-3, s+6, s+6), const Radius.circular(8)),
+        RRect.fromRectAndRadius(Rect.fromLTWH(dx - s / 2 - 3, dy - s / 2 - 3, s + 6, s + 6), const Radius.circular(8)),
         Paint()..color = d.color.withValues(alpha: a * 0.25)
                ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6));
 
-      // Sembol yazısı
       final tp = TextPainter(
         text: TextSpan(text: d.symbol, style: TextStyle(
           fontFamily: 'monospace', fontSize: d.size * 0.7,
@@ -1377,7 +1346,11 @@ class SeasonBgSystem {
         )),
         textDirection: TextDirection.ltr,
       )..layout();
-      tp.paint(canvas, Offset(dx - tp.width/2, dy - tp.height/2));
+      canvas.save();
+      canvas.translate(dx, dy);
+      canvas.rotate(math.sin(d.phase + _time) * 0.65);
+      tp.paint(canvas, Offset(-tp.width / 2, -tp.height / 2));
+      canvas.restore();
     }
   }
 
@@ -1544,11 +1517,11 @@ class _BombDrop {
     required this.size, required this.phase, required this.rotation});
 }
 
-class _MultiplierDrop {
+class _GravityDrop {
   double x, y, speed, size, phase;
   String symbol;
   Color color;
-  _MultiplierDrop({required this.x, required this.y, required this.speed,
+  _GravityDrop({required this.x, required this.y, required this.speed,
     required this.size, required this.phase,
     required this.symbol, required this.color});
 }

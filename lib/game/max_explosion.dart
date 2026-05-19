@@ -11,10 +11,10 @@ class SeasonInfo {
 
 const List<SeasonInfo> kSeasons = [
   SeasonInfo(key:'bomb',       emoji:'🔥', name:'BOMBA',       color:Color(0xFFFF4400)),
-  SeasonInfo(key:'speed',      emoji:'⚡', name:'HIZ',         color:Color(0xFFFFCC00)),
+  SeasonInfo(key:'mirror',     emoji:'🪞', name:'AYNA',        color:Color(0xFF44CCFF)),
   SeasonInfo(key:'ice',        emoji:'❄',  name:'BUZ',         color:Color(0xFF88EEFF)),
-  SeasonInfo(key:'multiplier', emoji:'✖',  name:'ÇARPAN',      color:Color(0xFFC87FFF)),
-  SeasonInfo(key:'shuffle',    emoji:'🔀', name:'DEĞİŞ TOKUŞ', color:Color(0xFFFF88FF)),
+  SeasonInfo(key:'gravity',    emoji:'🔄', name:'YERÇEKİMİ',   color:Color(0xFF8844FF)),
+  SeasonInfo(key:'chaos',      emoji:'💥', name:'KAOS',        color:Color(0xFFFF4488)),
   SeasonInfo(key:'mystery',    emoji:'❓', name:'GİZEM',       color:Color(0xFF888888)),
 ];
 
