@@ -500,11 +500,6 @@ class ParticleSystem {
       _drawMilestoneBanner(canvas, boardX, boardY, bw, bh, b);
     }
 
-    // 10. Level banner — EN ÜSTTE
-    for (final l in _levelTrans) {
-      _drawLevelBanner(canvas, boardX, boardY, bw, bh, l);
-    }
-
     canvas.restore(); // kirpmayi kaldir
   }
 

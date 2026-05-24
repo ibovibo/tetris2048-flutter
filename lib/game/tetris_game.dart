@@ -107,7 +107,7 @@ class TetrisGame extends FlameGame
     SoundManager.init().then((_) => SoundManager.playGameMusic());
     await _loadBest();
     try {
-      _bgImage = await Flame.images.load('oyunekran_bos.png');
+      _bgImage = await Flame.images.load('oyunekrannew.png');
     } catch (e) {}
     try {
       _scoreBoxImage = await Flame.images.load('score_bos.png');
@@ -147,6 +147,8 @@ class TetrisGame extends FlameGame
       'x8': 'blokk_8x',
       'x16': 'blokk_16x',
       'megabomb': 'blokk_megabomba',
+      'chaos': 'kaosjoker',
+      'mystery_block': 'gizemblok',
     };
     for (final entry in blockMap.entries) {
       try {
@@ -399,6 +401,7 @@ class TetrisGame extends FlameGame
         ),
       ),
       textDirection: TextDirection.ltr,
+      textAlign: TextAlign.center,
     )..layout(maxWidth: area.width);
 
     while (tp.width > area.width && fontSize > 8) {
@@ -1966,112 +1969,20 @@ class TetrisGame extends FlameGame
     }
 
     if (_mysteryActive && val != 0 && !isObstacle(val)) {
-      const pad = 1.5;
-      final rect = RRect.fromRectAndRadius(
-        Rect.fromLTWH(x + pad, y + pad, kCell - pad * 2, kCell - pad * 2),
-        const Radius.circular(8),
-      );
-
-      // Nabzeden gri - canli ama gri
-      final pulse = 0.7 + math.sin(animTime * 2.5 + x * 0.1 + y * 0.08) * 0.3;
-
-      // Dis glow - beyazimsi
-      canvas.drawRRect(
-        RRect.fromRectAndRadius(
-          Rect.fromLTWH(
-            x + pad - 3,
-            y + pad - 3,
-            kCell - pad * 2 + 6,
-            kCell - pad * 2 + 6,
-          ),
-          const Radius.circular(10),
-        ),
-        Paint()
-          ..color = Colors.white.withValues(alpha: 0.15 * pulse * alpha)
-          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6),
-      );
-
-      // Ana dolgu - koyu gri, canli
-      canvas.drawRRect(
-        rect,
-        Paint()
-          ..color = const Color(0xFF2A2A3A).withValues(alpha: 0.92 * alpha),
-      );
-
-      // Ust cam serit
-      canvas.drawRRect(
-        RRect.fromRectAndRadius(
-          Rect.fromLTWH(
-            x + pad + 2,
-            y + pad + 2,
-            kCell - pad * 2 - 4,
-            (kCell - pad * 2) * 0.42,
-          ),
-          const Radius.circular(6),
-        ),
-        Paint()..color = Colors.white.withValues(alpha: 0.22 * alpha),
-      );
-
-      // Nabzeden kenarlik
-      canvas.drawRRect(
-        rect,
-        Paint()
-          ..color = Colors.white.withValues(alpha: 0.4 * pulse * alpha)
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 1.8,
-      );
-
-      // Ikinci dis kenarlik - mor tonu
-      canvas.drawRRect(
-        RRect.fromRectAndRadius(
-          Rect.fromLTWH(
-            x + pad - 2,
-            y + pad - 2,
-            kCell - pad * 2 + 4,
-            kCell - pad * 2 + 4,
-          ),
-          const Radius.circular(9),
-        ),
-        Paint()
-          ..color = const Color(
-            0xFF8888CC,
-          ).withValues(alpha: 0.25 * pulse * alpha)
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 1,
-      );
-
-      // Soru isareti - buyuk, parlak
-      final tp = TextPainter(
-        text: TextSpan(
-          text: '?',
-          style: TextStyle(
-            fontFamily: 'monospace',
-            fontSize: 22,
-            fontWeight: FontWeight.bold,
-            color: Colors.white.withValues(alpha: (0.7 + pulse * 0.3) * alpha),
-            shadows: [
-              Shadow(
-                color: Colors.white.withValues(alpha: 0.6 * pulse),
-                blurRadius: 12,
-              ),
-              Shadow(
-                color: const Color(0xFF8888FF).withValues(alpha: 0.4),
-                blurRadius: 20,
-              ),
-              Shadow(
-                color: Colors.black.withValues(alpha: 0.9),
-                blurRadius: 4,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-        ),
-        textDirection: TextDirection.ltr,
-      )..layout();
-      tp.paint(
-        canvas,
-        Offset(x + kCell / 2 - tp.width / 2, y + kCell / 2 - tp.height / 2 + 1),
-      );
+      final imgKey = 'mystery_block';
+      if (_blockImages.containsKey(imgKey)) {
+        final img = _blockImages[imgKey]!;
+        final src = Rect.fromLTWH(0, 0, img.width.toDouble(), img.height.toDouble());
+        final dst = Rect.fromLTWH(x + pad, y + pad, kCell - pad * 2, kCell - pad * 2);
+        canvas.drawImageRect(
+          img,
+          src,
+          dst,
+          Paint()
+            ..filterQuality = FilterQuality.medium
+            ..color = Colors.white.withValues(alpha: alpha),
+        );
+      }
       return;
     }
 
@@ -2123,6 +2034,8 @@ class TetrisGame extends FlameGame
       imgKey = 'x16';
     else if (val == kMegaBomb)
       imgKey = 'megabomb';
+    else if (val == kChaos)
+      imgKey = 'chaos';
 
     if (imgKey != null && _blockImages.containsKey(imgKey)) {
       final img = _blockImages[imgKey]!;

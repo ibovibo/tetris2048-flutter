@@ -115,7 +115,7 @@ class _MenuScreenState extends State<MenuScreen>
       body: Stack(
         children: [
           Positioned.fill(
-            child: Image.asset('assets/images/menu_bos.png', fit: BoxFit.cover),
+            child: Image.asset('assets/images/newmenu.png', fit: BoxFit.cover),
           ),
           Positioned(
             top: size.height * 0.05,
