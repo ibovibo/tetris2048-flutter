@@ -11,7 +11,6 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
-  double _volume = 0.7;
   bool _musicEnabled = true;
   bool _sfxEnabled = true;
 
@@ -24,7 +23,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _loadSettings() async {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
-      _volume = prefs.getDouble('volume') ?? 0.7;
       _musicEnabled = prefs.getBool('music_enabled') ?? true;
       _sfxEnabled = prefs.getBool('sfx_enabled') ?? true;
     });
@@ -32,270 +30,242 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Future<void> _saveSettings() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setDouble('volume', _volume);
     await prefs.setBool('music_enabled', _musicEnabled);
     await prefs.setBool('sfx_enabled', _sfxEnabled);
-    SoundManager.setVolume(_volume);
     SoundManager.enabled = _sfxEnabled;
     if (!_musicEnabled) SoundManager.stopMusic();
   }
 
+  Widget _tap({
+    required double top,
+    required double left,
+    required double right,
+    required double height,
+    required VoidCallback onTap,
+  }) {
+    return LayoutBuilder(
+      builder: (context, _) {
+        final h = MediaQuery.of(context).size.height;
+        final w = MediaQuery.of(context).size.width;
+        return Positioned(
+          top: h * top,
+          left: w * left,
+          right: w * right,
+          height: h * height,
+          child: GestureDetector(
+            onTap: onTap,
+            child: Container(color: Colors.transparent),
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final size = MediaQuery.of(context).size;
+    final w = size.width;
+    final h = size.height;
+
     return Scaffold(
-      backgroundColor: const Color(0xFF020818),
-      body: SafeArea(
-        child: Column(
-          children: [
-            // Başlık
-            Padding(
-              padding: const EdgeInsets.all(20),
-              child: Row(
-                children: [
-                  GestureDetector(
-                    onTap: () => Navigator.pop(context),
-                    child: const Text(
-                      '← GERİ',
-                      style: TextStyle(
-                        fontFamily: 'monospace',
-                        fontSize: 12,
-                        color: Color(0xFF5858A0),
-                      ),
-                    ),
-                  ),
-                  const Spacer(),
-                  const Text(
-                    'AYARLAR',
-                    style: TextStyle(
-                      fontFamily: 'monospace',
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFFC87FFF),
-                    ),
-                  ),
-                  const Spacer(),
-                  const SizedBox(width: 60),
-                ],
-              ),
+      backgroundColor: Colors.black,
+      body: Stack(
+        children: [
+          // Tam ekran PNG
+          Positioned.fill(
+            child: Image.asset(
+              'assets/images/ayarlarmenu.png',
+              fit: BoxFit.fill,
             ),
+          ),
 
-            const SizedBox(height: 20),
-
-            // Ayar panelleri
-            _buildPanel(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'SES SEVİYESİ',
-                    style: TextStyle(
-                      fontFamily: 'monospace',
-                      fontSize: 10,
-                      color: Color(0xFF5CF5E0),
-                      letterSpacing: 3,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      const Text('🔈', style: TextStyle(fontSize: 18)),
-                      Expanded(
-                        child: SliderTheme(
-                          data: SliderTheme.of(context).copyWith(
-                            activeTrackColor: const Color(0xFFC87FFF),
-                            inactiveTrackColor: const Color(0xFF1A0A3A),
-                            thumbColor: const Color(0xFFC87FFF),
-                            overlayColor: const Color(0x33C87FFF),
-                            thumbShape: const RoundSliderThumbShape(
-                              enabledThumbRadius: 10,
-                            ),
-                            trackHeight: 4,
-                          ),
-                          child: Slider(
-                            value: _volume,
-                            min: 0,
-                            max: 1,
-                            onChanged: (v) {
-                              setState(() => _volume = v);
-                              SoundManager.setVolume(v);
-                            },
-                            onChangeEnd: (_) => _saveSettings(),
-                          ),
-                        ),
-                      ),
-                      const Text('🔊', style: TextStyle(fontSize: 18)),
-                    ],
-                  ),
-                  Center(
-                    child: Text(
-                      '${(_volume * 100).round()}%',
-                      style: const TextStyle(
-                        fontFamily: 'monospace',
-                        fontSize: 14,
-                        color: Color(0xFFC87FFF),
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+          // Geri butonu
+          Positioned(
+            top: h * 0.055,
+            left: w * 0.04,
+            width: w * 0.15,
+            height: w * 0.15,
+            child: GestureDetector(
+              onTap: () => Navigator.pop(context),
+              child: Container(color: Colors.transparent),
             ),
+          ),
 
-            const SizedBox(height: 16),
-
-            _buildPanel(
-              child: Column(
-                children: [
-                  _buildToggle('MÜZİK', _musicEnabled, (v) {
-                    setState(() => _musicEnabled = v);
-                    _saveSettings();
-                  }),
-                  const SizedBox(height: 16),
-                  _buildToggle('SES EFEKTLERİ', _sfxEnabled, (v) {
-                    setState(() => _sfxEnabled = v);
-                    _saveSettings();
-                  }),
-                ],
-              ),
+          // Müzik toggle tıklanabilir alan
+          Positioned(
+            top: h * 0.242,
+            right: w * 0.13,
+            child: _buildToggle(
+              _musicEnabled,
+              (v) {
+                setState(() => _musicEnabled = v);
+                _saveSettings();
+              },
+              w,
+              h,
             ),
+          ),
 
-            const SizedBox(height: 16),
-
-            _buildPanel(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'DİL / LANGUAGE',
-                    style: TextStyle(
-                      fontFamily: 'monospace',
-                      fontSize: 10,
-                      color: Color(0xFF5CF5E0),
-                      letterSpacing: 3,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      _buildLangButton('tr', '🇹🇷 TR'),
-                      _buildLangButton('en', '🇬🇧 EN'),
-                      _buildLangButton('es', '🇪🇸 ES'),
-                      _buildLangButton('pt', '🇧🇷 PT'),
-                      _buildLangButton('de', '🇩🇪 DE'),
-                      _buildLangButton('fr', '🇫🇷 FR'),
-                      _buildLangButton('it', '🇮🇹 IT'),
-                      _buildLangButton('ru', '🇷🇺 RU'),
-                      _buildLangButton('ja', '🇯🇵 JA'),
-                      _buildLangButton('ko', '🇰🇷 KO'),
-                      _buildLangButton('pl', '🇵🇱 PL'),
-                    ],
-                  ),
-                ],
-              ),
+          // Ses efekti toggle tıklanabilir alan
+          Positioned(
+            top: h * 0.335,
+            right: w * 0.13,
+            child: _buildToggle(
+              _sfxEnabled,
+              (v) {
+                setState(() => _sfxEnabled = v);
+                _saveSettings();
+              },
+              w,
+              h,
             ),
-          ],
-        ),
+          ),
+
+          // Dil butonları — PNG'deki grid konumuna göre
+          Positioned(
+            top: h * 0.4525,
+            left: w * 0.11,
+            right: -w * 0.02,
+            height: h * 0.396,
+            child: _buildLangGrid(w, h),
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildPanel({required Widget child}) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 20),
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: const Color(0xFF0C0820),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: const Color(0xFF5CF5E0).withValues(alpha: 0.15),
+  Widget _buildToggle(
+    bool value,
+    Function(bool) onChanged,
+    double w,
+    double h,
+  ) {
+    return GestureDetector(
+      onTap: () => onChanged(!value),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        width: w * 0.162,
+        height: h * 0.046,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(20),
+          color: value ? const Color(0xFF6A0FD4) : Colors.grey.shade500,
         ),
-      ),
-      child: child,
-    );
-  }
-
-  Widget _buildToggle(String label, bool value, Function(bool) onChanged) {
-    return Row(
-      children: [
-        Text(
-          label,
-          style: const TextStyle(
-            fontFamily: 'monospace',
-            fontSize: 12,
-            color: Colors.white,
-            letterSpacing: 2,
+        child: AnimatedAlign(
+          duration: const Duration(milliseconds: 200),
+          alignment: value ? Alignment.centerRight : Alignment.centerLeft,
+          child: Container(
+            margin: const EdgeInsets.all(3),
+            width: h * 0.038,
+            height: h * 0.038,
+            decoration: const BoxDecoration(
+              shape: BoxShape.circle,
+              color: Colors.white,
+            ),
           ),
         ),
-        const Spacer(),
-        GestureDetector(
-          onTap: () => onChanged(!value),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            width: 52,
-            height: 28,
+      ),
+    );
+  }
+
+  Widget _buildLangGrid(double w, double h) {
+    final langs = [
+      ('en', '🇬🇧', 'English', const Color(0xFF1A6ACC)),
+      ('de', '🇩🇪', 'Deutsch', const Color(0xFFFFCC00)),
+      ('fr', '🇫🇷', 'Français', const Color(0xFF3B8BEB)),
+      ('it', '🇮🇹', 'Italiano', const Color(0xFF9B4FD4)),
+      ('pl', '🇵🇱', 'Polski', const Color(0xFFE8334A)),
+      ('es', '🇪🇸', 'Español', const Color(0xFFFF8C00)),
+      ('pt', '🇧🇷', 'Português', const Color(0xFF2DAE4E)),
+      ('ru', '🇷🇺', 'Русский', const Color(0xFF3B8BEB)),
+      ('tr', '🇹🇷', 'Türkçe', const Color(0xFF8B0000)),
+      ('ar', '🇸🇦', 'العربية', const Color(0xFF1B5E20)),
+      ('th', '🇹🇭', 'ภาษาไทย', const Color(0xFF0D1B5E)),
+      ('id', '🇮🇩', 'Indonesia', const Color(0xFFE8334A)),
+      ('ko', '🇰🇷', '한국어', Colors.white),
+      ('ja', '🇯🇵', '日本語', const Color(0xFFE84090)),
+      ('zh', '🀄', '繁體中文', const Color(0xFF8B0000)),
+    ];
+
+    final btnW = (w * 0.88 - w * 0.025 * 2) / 3 * 0.855;
+    final btnH = h * 0.0675 * 1.05 * 1.05 * 0.78;
+
+    return Wrap(
+      spacing: w * 0.025,
+      runSpacing: h * 0.012,
+      children: langs.map((lang) {
+        final selected = L10n.lang == lang.$1;
+        return GestureDetector(
+          onTap: () async {
+            await L10n.setLang(lang.$1);
+            setState(() {});
+          },
+          child: Container(
+            width: btnW,
+            height: btnH,
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(14),
-              color: value ? const Color(0xFFC87FFF) : const Color(0xFF1A0A3A),
-              border: Border.all(
-                color: value
-                    ? const Color(0xFFC87FFF)
-                    : const Color(0xFF333366),
-              ),
+              color: lang.$4,
+              borderRadius: BorderRadius.circular(12),
+              border: selected
+                  ? Border.all(
+                      color: lang.$4 == Colors.white
+                          ? Colors.black
+                          : Colors.white,
+                      width: 3,
+                    )
+                  : null,
             ),
-            child: AnimatedAlign(
-              duration: const Duration(milliseconds: 200),
-              alignment: value ? Alignment.centerRight : Alignment.centerLeft,
-              child: Container(
-                margin: const EdgeInsets.all(3),
-                width: 22,
-                height: 22,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: value ? Colors.white : const Color(0xFF5858A0),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  lang.$2,
+                  style: TextStyle(
+                    fontSize: 16,
+                    shadows: lang.$4 == Colors.white
+                        ? const []
+                        : const [
+                            Shadow(
+                              color: Colors.black,
+                              blurRadius: 4,
+                              offset: Offset(1, 1),
+                            ),
+                          ],
+                  ),
                 ),
-              ),
+                const SizedBox(width: 5),
+                Flexible(
+                  child: Text(
+                    lang.$3,
+                    style: TextStyle(
+                      color: lang.$4 == Colors.white
+                          ? Colors.black
+                          : Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                      shadows: lang.$4 == Colors.white
+                          ? const []
+                          : const [
+                              Shadow(
+                                color: Colors.black,
+                                blurRadius: 6,
+                                offset: Offset(1, 1),
+                              ),
+                            ],
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                if (selected)
+                  Icon(
+                    Icons.check_circle,
+                    color: lang.$4 == Colors.white ? Colors.black : Colors.white,
+                    size: 14,
+                  ),
+              ],
             ),
           ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildLangButton(String lang, String label) {
-    final selected = L10n.lang == lang;
-    return SizedBox(
-      width: 76,
-      child: GestureDetector(
-        onTap: () async {
-          await L10n.setLang(lang);
-          setState(() {});
-        },
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 12),
-          decoration: BoxDecoration(
-            color: selected ? const Color(0xFFC87FFF) : const Color(0xFF1A0A3A),
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(
-              color: selected
-                  ? const Color(0xFFC87FFF)
-                  : const Color(0xFF333366),
-            ),
-          ),
-          child: Center(
-            child: Text(
-              label,
-              style: TextStyle(
-                fontFamily: 'monospace',
-                fontSize: 12,
-                color: selected ? Colors.white : const Color(0xFF5858A0),
-                fontWeight: selected ? FontWeight.bold : FontWeight.normal,
-              ),
-            ),
-          ),
-        ),
-      ),
+        );
+      }).toList(),
     );
   }
 }

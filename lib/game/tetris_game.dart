@@ -58,6 +58,7 @@ class TetrisGame extends FlameGame
   bool gameActive = false;
   @override
   bool paused = false;
+  bool _musicEnabled = true;
   Set<int> seenMilestones = {};
 
   Map<String, int> frozenSet = {};
@@ -89,8 +90,18 @@ class TetrisGame extends FlameGame
   ui.Image? _bestScoreBoxImage;
   ui.Image? _yuzdeBarImage;
   ui.Image? _gameOverImage;
+  ui.Image? _pauseMenuImage;
+  ui.Image? _pauseBtnImage;
   Rect? _gameOverRestartRect;
   Rect? _gameOverMenuRect;
+  Rect? _pauseResumeRect;
+  Rect? _pauseRestartRect;
+  Rect? _pauseHomeRect;
+  Rect? _pauseSfxRect;
+  Rect? _pauseMusicRect;
+  Rect? _pauseBtnRect;
+  double _pauseSfxFlash = 0.0;
+  double _pauseMusicFlash = 0.0;
 
   // Swipe/drag kontrolleri
   double _dragTotalX = 0;
@@ -117,6 +128,12 @@ class TetrisGame extends FlameGame
     } catch (e) {}
     try {
       _gameOverImage = await Flame.images.load('game_over.png');
+    } catch (e) {}
+    try {
+      _pauseMenuImage = await Flame.images.load('pausemenu.png');
+    } catch (e) {}
+    try {
+      _pauseBtnImage = await Flame.images.load('pause.png');
     } catch (e) {}
 
     try {
@@ -349,18 +366,59 @@ class TetrisGame extends FlameGame
     final tap = info.eventPosition.global;
     final bw = kCols * kCell;
     final bh = kRows * kCell;
+    final sh = _scoreBoxImage != null
+        ? (bw * 0.48) * (_scoreBoxImage!.height / _scoreBoxImage!.width)
+        : 52.0;
 
     if (paused && gameActive) {
-      const ph = 186.0;
-      final pcx = boardX + bw / 2;
-      final pry = boardY + bh / 2 - ph / 2;
-      if (_isInsideButton(tap, pcx, pry + 90, 162, 36)) {
-        _togglePause();
+      final pos = info.eventPosition.global;
+      final p = Offset(pos.x, pos.y);
+      if (_pauseResumeRect?.contains(p) == true) {
+        paused = false;
         return;
       }
-      if (_isInsideButton(tap, pcx, pry + 140, 162, 36)) {
-        goToMenu();
+      if (_pauseRestartRect?.contains(p) == true) {
+        _initGame();
+        paused = false;
+        return;
       }
+      if (_pauseHomeRect?.contains(p) == true) {
+        onPause?.call();
+        return;
+      }
+      if (_pauseSfxRect?.contains(p) == true) {
+        SoundManager.enabled = !SoundManager.enabled;
+        _pauseSfxFlash = 1.0;
+        return;
+      }
+      if (_pauseMusicRect?.contains(p) == true) {
+        _musicEnabled = !_musicEnabled;
+        if (_musicEnabled) {
+          SoundManager.playGameMusic();
+        } else {
+          SoundManager.stopMusic();
+        }
+        _pauseMusicFlash = 1.0;
+        return;
+      }
+      if (_pauseMenuImage == null) {
+        const ph = 186.0;
+        final pcx = boardX + bw / 2;
+        final pry = boardY + bh / 2 - ph / 2;
+        if (_isInsideButton(tap, pcx, pry + 90, 162, 36)) {
+          _togglePause();
+          return;
+        }
+        if (_isInsideButton(tap, pcx, pry + 140, 162, 36)) {
+          goToMenu();
+          return;
+        }
+      }
+      return;
+    }
+
+    if (gameActive && _pauseBtnRect?.contains(Offset(tap.x, tap.y)) == true) {
+      paused = !paused;
       return;
     }
 
@@ -427,6 +485,201 @@ class TetrisGame extends FlameGame
     );
   }
 
+  void _drawCross(Canvas canvas, Rect rect) {
+    final paint = Paint()
+      ..color = const Color(0xFFFF2222)
+      ..strokeWidth = 4
+      ..strokeCap = StrokeCap.round;
+    final inset = rect.width * 0.2;
+    canvas.drawLine(
+      Offset(rect.left + inset, rect.top + inset),
+      Offset(rect.right - inset, rect.bottom - inset),
+      paint,
+    );
+    canvas.drawLine(
+      Offset(rect.right - inset, rect.top + inset),
+      Offset(rect.left + inset, rect.bottom - inset),
+      paint,
+    );
+  }
+
+  void _drawOutlineText(
+    Canvas canvas,
+    String text,
+    Rect area,
+    Color color,
+    Color outlineColor, {
+    bool bold = false,
+  }) {
+    final extraChars = (text.length - 7).clamp(0, 20);
+    double fontSize = area.height * 0.72 * pow(0.90, extraChars);
+
+    TextPainter makeTp(Color c, {double? size}) => TextPainter(
+      text: TextSpan(
+        text: text,
+        style: TextStyle(
+          fontSize: size ?? fontSize,
+          fontWeight: bold ? FontWeight.w900 : FontWeight.normal,
+          color: c,
+          letterSpacing: 1,
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+      textAlign: TextAlign.center,
+    );
+
+    final tp = makeTp(color)..layout(maxWidth: area.width);
+    while (tp.width > area.width && fontSize > 8) {
+      fontSize -= 1;
+      tp.text = makeTp(color, size: fontSize).text;
+      tp.layout(maxWidth: area.width);
+    }
+
+    final dx = area.left + (area.width - tp.width) / 2;
+    final dy = area.top + (area.height - tp.height) / 2;
+    final offsets = [
+      const Offset(-2, 0),
+      const Offset(2, 0),
+      const Offset(0, -2),
+      const Offset(0, 2),
+      const Offset(-2, -2),
+      const Offset(2, -2),
+      const Offset(-2, 2),
+      const Offset(2, 2),
+    ];
+
+    for (final off in offsets) {
+      final outTp = makeTp(outlineColor, size: fontSize)
+        ..layout(maxWidth: area.width);
+      outTp.paint(canvas, Offset(dx + off.dx, dy + off.dy));
+    }
+    tp.paint(canvas, Offset(dx, dy));
+  }
+
+  void _drawCurvedOutlineText(
+    Canvas canvas,
+    String text,
+    Rect area,
+    Color color,
+    Color outlineColor, {
+    bool bold = false,
+  }) {
+    final letters = text.split('');
+    if (letters.isEmpty) return;
+
+    // Slightly larger initial font size so the title appears a bit bigger
+    const refLen = 5; // baseline (English "PAUSE")
+    // Shrink only for up to 2 extra characters beyond the 5-char baseline
+    // so strings longer than 7 chars won't trigger further shrinking.
+    final extra = (text.length - refLen).clamp(0, 2);
+    final scale = pow(0.90, extra);
+    double fontSize = area.height * 1.06 * scale;
+    // If this is the localized pause text in Turkish, boost the font size
+    // so the Turkish string appears visually larger regardless of length.
+    if (L10n.lang == 'tr' && text == L10n.t('pause')) {
+      // base boost we want at minimum
+      double boost = 1.35;
+      // If the shrink `scale` dropped below 1.0 due to extra characters,
+      // ensure the boost overcomes the shrink so the final size grows
+      // relative to the baseline. We scale the boost up so that
+      // `scale * boost >= 1.10` (i.e. at least 10% larger than baseline).
+      if (scale < 1.0) {
+        boost = math.max(boost, (1.10 / scale));
+      }
+      fontSize *= boost;
+    }
+    // Further reduce letter spacing so characters are tighter
+    const letterSpacing = -0.4;
+
+    List<TextPainter> buildPainters(double size) => letters
+        .map(
+          (letter) => TextPainter(
+            text: TextSpan(
+              text: letter,
+              style: TextStyle(
+                fontSize: size,
+                fontWeight: bold ? FontWeight.w900 : FontWeight.normal,
+                color: color,
+                letterSpacing: letterSpacing,
+              ),
+            ),
+            textDirection: TextDirection.ltr,
+            textAlign: TextAlign.center,
+          )..layout(),
+        )
+        .toList();
+
+    var painters = buildPainters(fontSize);
+    while (painters.fold<double>(0, (sum, tp) => sum + tp.width) +
+            (letters.length - 1) * (fontSize * 0.06) >
+        area.width &&
+        fontSize > 8) {
+      fontSize -= 1;
+      painters = buildPainters(fontSize);
+    }
+
+    final totalWidth = painters.fold<double>(0, (sum, tp) => sum + tp.width) +
+      (letters.length - 1) * (fontSize * 0.06);
+    final startX = area.left + (area.width - totalWidth) / 2;
+    // Use actual painter heights to center vertically (fixes CJK and shrink alignment)
+    final maxPainterHeight = painters.fold<double>(0.0, (m, tp) => math.max(m, tp.height));
+    final baseY = area.top + (area.height - maxPainterHeight) / 2;
+    // Keep the title curve subtle.
+    final curveHeight = area.height * 0.08;
+    final rotateSpread = 0.03;
+    final outlineOffsets = [
+      const Offset(-2, 0),
+      const Offset(2, 0),
+      const Offset(0, -2),
+      const Offset(0, 2),
+      const Offset(-2, -2),
+      const Offset(2, -2),
+      const Offset(-2, 2),
+      const Offset(2, 2),
+    ];
+
+    double cursorX = startX;
+    for (var i = 0; i < painters.length; i++) {
+      final tp = painters[i];
+      final progress = letters.length == 1 ? 0.5 : i / (letters.length - 1);
+      final arc = math.sin(progress * math.pi);
+      final yOffset = -curveHeight * arc;
+      final angle = (progress - 0.5) * rotateSpread;
+      final charX = cursorX + tp.width / 2;
+      final charY = baseY + yOffset + tp.height / 2;
+
+      for (final off in outlineOffsets) {
+        canvas.save();
+        canvas.translate(charX + off.dx, charY + off.dy);
+        canvas.rotate(angle);
+        final outTp = TextPainter(
+          text: TextSpan(
+            text: letters[i],
+            style: TextStyle(
+              fontSize: fontSize,
+              fontWeight: bold ? FontWeight.w900 : FontWeight.normal,
+              color: outlineColor,
+              letterSpacing: letterSpacing,
+            ),
+          ),
+          textDirection: TextDirection.ltr,
+          textAlign: TextAlign.center,
+        )..layout();
+        outTp.paint(canvas, Offset(-outTp.width / 2, -outTp.height / 2));
+        canvas.restore();
+      }
+
+      canvas.save();
+      canvas.translate(charX, charY);
+      canvas.rotate(angle);
+      tp.paint(canvas, Offset(-tp.width / 2, -tp.height / 2));
+      canvas.restore();
+
+      // even smaller extra gap between letters
+      cursorX += tp.width + fontSize * 0.02;
+    }
+  }
+
   void _debugInject32768() {
     if (!gameActive) return;
     final r = (kRows / 2).floor();
@@ -464,7 +717,9 @@ class TetrisGame extends FlameGame
       val = p.shape[0][0];
     } while (val == kStar);
 
-    currentPiece.shape = [[val]];
+    currentPiece.shape = [
+      [val],
+    ];
 
     // Sol parça sadece 0 veya 1'de spawn olabilir
     // Sol X=0 → Sağ X=3 (aralarında 2 boşluk: sütun 1,2)
@@ -472,7 +727,9 @@ class TetrisGame extends FlameGame
     currentPiece.x = _rng.nextInt(2); // 0 veya 1
 
     _mirrorPiece = Piece(
-      shape: [[val]],
+      shape: [
+        [val],
+      ],
       x: currentPiece.x + 3, // 0→3, 1→4
       y: currentPiece.y,
       frozen: currentPiece.frozen,
@@ -513,13 +770,13 @@ class TetrisGame extends FlameGame
         if (shape[r][c] == 0) continue;
         final x = ox + c, y = oy + r;
         if (x < 0 || x >= kCols) return false;
-        
+
         if (_gravityReversed) {
           if (y < 0) return false; // üst sınırı taban kabul et
         } else {
           if (y >= kRows) return false; // alt sınırı taban kabul et
         }
-        
+
         if (y >= 0 && y < kRows && board.cells[y][x] != 0) return false;
       }
     }
@@ -531,7 +788,8 @@ class TetrisGame extends FlameGame
     if (_mirrorActive && _mirrorPiece != null) {
       final newLeft = currentPiece.x - 1;
       final newRight = _mirrorPiece!.x - 1;
-      if (newLeft >= 0 && newRight - newLeft >= 3) { // aralarında min 2 boşluk
+      if (newLeft >= 0 && newRight - newLeft >= 3) {
+        // aralarında min 2 boşluk
         currentPiece.x--;
         _mirrorPiece!.x--;
       }
@@ -547,7 +805,8 @@ class TetrisGame extends FlameGame
     if (_mirrorActive && _mirrorPiece != null) {
       final newLeft = currentPiece.x + 1;
       final newRight = _mirrorPiece!.x + 1;
-      if (newRight <= 5 && newRight - newLeft >= 3) { // aralarında min 2 boşluk
+      if (newRight <= 5 && newRight - newLeft >= 3) {
+        // aralarında min 2 boşluk
         currentPiece.x++;
         _mirrorPiece!.x++;
       }
@@ -568,8 +827,16 @@ class TetrisGame extends FlameGame
         _lockPiece();
       }
     } else if (_mirrorActive && _mirrorPiece != null) {
-      final mainOk = _validLeft(currentPiece.shape, currentPiece.x, currentPiece.y + 1);
-      final mirOk  = _validRight(_mirrorPiece!.shape, _mirrorPiece!.x, _mirrorPiece!.y + 1);
+      final mainOk = _validLeft(
+        currentPiece.shape,
+        currentPiece.x,
+        currentPiece.y + 1,
+      );
+      final mirOk = _validRight(
+        _mirrorPiece!.shape,
+        _mirrorPiece!.x,
+        _mirrorPiece!.y + 1,
+      );
       if (mainOk && mirOk) {
         currentPiece.y++;
         _mirrorPiece!.y++;
@@ -635,8 +902,16 @@ class TetrisGame extends FlameGame
         currentPiece.y--;
       }
     } else if (_mirrorActive && _mirrorPiece != null) {
-      while (_validLeft(currentPiece.shape, currentPiece.x, currentPiece.y + 1) &&
-             _validRight(_mirrorPiece!.shape, _mirrorPiece!.x, _mirrorPiece!.y + 1)) {
+      while (_validLeft(
+            currentPiece.shape,
+            currentPiece.x,
+            currentPiece.y + 1,
+          ) &&
+          _validRight(
+            _mirrorPiece!.shape,
+            _mirrorPiece!.x,
+            _mirrorPiece!.y + 1,
+          )) {
         currentPiece.y++;
         _mirrorPiece!.y++;
       }
@@ -768,7 +1043,12 @@ class TetrisGame extends FlameGame
     // 32768 özel parçalardan (Joker/X2 vb.) oluştuysa da patlamayı tetikle.
     _checkBoardForMaxTileExplosion();
 
-    final events = board.resolveMerges(frozenSet, frozenCols, multiplierLines, reverseGravity: _gravityReversed);
+    final events = board.resolveMerges(
+      frozenSet,
+      frozenCols,
+      multiplierLines,
+      reverseGravity: _gravityReversed,
+    );
     if (events.isNotEmpty) {
       double meterGain = 0;
       final allMerges = events;
@@ -849,7 +1129,6 @@ class TetrisGame extends FlameGame
         _meter = 0.0;
         _triggerMaxExplosion();
       }
-
     } else {
       _resetCombo();
     }
@@ -872,9 +1151,15 @@ class TetrisGame extends FlameGame
     );
     pieceVisualY = currentPiece.y.toDouble();
 
-    final spawnInvalid = !_valid(currentPiece.shape, currentPiece.x, currentPiece.y) ||
-        (_mirrorActive && _mirrorPiece != null &&
-            !_validRight(_mirrorPiece!.shape, _mirrorPiece!.x, _mirrorPiece!.y));
+    final spawnInvalid =
+        !_valid(currentPiece.shape, currentPiece.x, currentPiece.y) ||
+        (_mirrorActive &&
+            _mirrorPiece != null &&
+            !_validRight(
+              _mirrorPiece!.shape,
+              _mirrorPiece!.x,
+              _mirrorPiece!.y,
+            ));
     if (spawnInvalid) {
       _endGame();
       return;
@@ -1077,10 +1362,8 @@ class TetrisGame extends FlameGame
           int seasonIdx;
           do {
             seasonIdx = _rng.nextInt(kSeasons.length);
-          } while (
-            kSeasons[seasonIdx].key == _lastSeason ||
-            kSeasons[seasonIdx].key == _secondLastSeason
-          );
+          } while (kSeasons[seasonIdx].key == _lastSeason ||
+              kSeasons[seasonIdx].key == _secondLastSeason);
           _pendingSeasonIdx = seasonIdx;
           _maxExplosion = MaxExplosion(selectedSeason: seasonIdx);
           return;
@@ -1092,10 +1375,8 @@ class TetrisGame extends FlameGame
     int seasonIdx;
     do {
       seasonIdx = _rng.nextInt(kSeasons.length);
-    } while (
-      kSeasons[seasonIdx].key == _lastSeason ||
-      kSeasons[seasonIdx].key == _secondLastSeason
-    );
+    } while (kSeasons[seasonIdx].key == _lastSeason ||
+        kSeasons[seasonIdx].key == _secondLastSeason);
     _pendingSeasonIdx = seasonIdx;
     _maxExplosion = MaxExplosion(selectedSeason: seasonIdx);
     _addScore(100000);
@@ -1121,7 +1402,11 @@ class TetrisGame extends FlameGame
     if (activeSeason == 'gravity') {
       _gravityReversed = true;
       // Havadaki parçayı yenile — flip sonrası çakışma olmasın
-      currentPiece = PieceGenerator.generate(score, moveCount, season: activeSeason);
+      currentPiece = PieceGenerator.generate(
+        score,
+        moveCount,
+        season: activeSeason,
+      );
       board.flipVertical(frozenSet);
       currentPiece.y = kRows - currentPiece.shape.length;
       pieceVisualY = currentPiece.y.toDouble();
@@ -1266,6 +1551,8 @@ class TetrisGame extends FlameGame
     dangerPulse = (dangerPulse + dt * 3) % (2 * pi);
     comboHeat = (comboHeat - dt * 0.006).clamp(0, 1);
     screenShake = (screenShake - dt * 2.5).clamp(0, 1);
+    if (_pauseSfxFlash > 0) _pauseSfxFlash -= dt * 15;
+    if (_pauseMusicFlash > 0) _pauseMusicFlash -= dt * 15;
     particles.update(dt);
     particles.seasonBg.update(dt, boardX, boardY, kCols * kCell, kRows * kCell);
 
@@ -1404,15 +1691,27 @@ class TetrisGame extends FlameGame
       } else {
         // Normal yerçekimi — aşağıya doğru hareket
         if (_mirrorActive && _mirrorPiece != null) {
-          final mainOk = _validLeft(currentPiece.shape, currentPiece.x, currentPiece.y + 1);
-          final mirOk  = _validRight(_mirrorPiece!.shape, _mirrorPiece!.x, _mirrorPiece!.y + 1);
+          final mainOk = _validLeft(
+            currentPiece.shape,
+            currentPiece.x,
+            currentPiece.y + 1,
+          );
+          final mirOk = _validRight(
+            _mirrorPiece!.shape,
+            _mirrorPiece!.x,
+            _mirrorPiece!.y + 1,
+          );
           if (mainOk && mirOk) {
             currentPiece.y++;
             _mirrorPiece!.y++;
           } else {
             _lockPiece();
           }
-        } else if (_valid(currentPiece.shape, currentPiece.x, currentPiece.y + 1)) {
+        } else if (_valid(
+          currentPiece.shape,
+          currentPiece.x,
+          currentPiece.y + 1,
+        )) {
           currentPiece.y++;
         } else {
           _lockPiece();
@@ -1950,10 +2249,10 @@ class TetrisGame extends FlameGame
     bool ghost = false,
   }) {
     final color = tileColor(val);
-    const pad = 1.5;
+    const pad = 2.0;
     final rect = RRect.fromRectAndRadius(
       Rect.fromLTWH(x + pad, y + pad, kCell - pad * 2, kCell - pad * 2),
-      const Radius.circular(8),
+      const Radius.circular(14),
     );
 
     if (ghost) {
@@ -1972,8 +2271,22 @@ class TetrisGame extends FlameGame
       final imgKey = 'mystery_block';
       if (_blockImages.containsKey(imgKey)) {
         final img = _blockImages[imgKey]!;
-        final src = Rect.fromLTWH(0, 0, img.width.toDouble(), img.height.toDouble());
-        final dst = Rect.fromLTWH(x + pad, y + pad, kCell - pad * 2, kCell - pad * 2);
+        final src = Rect.fromLTWH(
+          0,
+          0,
+          img.width.toDouble(),
+          img.height.toDouble(),
+        );
+        final dst = Rect.fromLTWH(
+          x + pad,
+          y + pad,
+          kCell - pad * 2,
+          kCell - pad * 2,
+        );
+        canvas.save();
+        canvas.clipRRect(
+          RRect.fromRectAndRadius(dst, const Radius.circular(6)),
+        );
         canvas.drawImageRect(
           img,
           src,
@@ -1982,6 +2295,7 @@ class TetrisGame extends FlameGame
             ..filterQuality = FilterQuality.medium
             ..color = Colors.white.withValues(alpha: alpha),
         );
+        canvas.restore();
       }
       return;
     }
@@ -2051,6 +2365,8 @@ class TetrisGame extends FlameGame
         kCell - pad * 2,
         kCell - pad * 2,
       );
+      canvas.save();
+      canvas.clipRRect(RRect.fromRectAndRadius(dst, const Radius.circular(6)));
       canvas.drawImageRect(
         img,
         src,
@@ -2059,6 +2375,7 @@ class TetrisGame extends FlameGame
           ..filterQuality = FilterQuality.medium
           ..color = Colors.white.withValues(alpha: alpha),
       );
+      canvas.restore();
       return;
     }
 
@@ -2326,13 +2643,18 @@ class TetrisGame extends FlameGame
     final bw = kCols * kCell;
     final rpW = 80.0;
     final rpX = boardX + bw - 4;
+    final sw = bw * 0.44;
+    final ssBw = bw * 0.44;
+    final gap = bw * 0.12;
+    const pauseBtnSize = 38.0;
+    final sh = _scoreBoxImage != null
+        ? sw * (_scoreBoxImage!.height / _scoreBoxImage!.width)
+        : 52.0;
 
     // === SKOR PANELİ ===
     if (_scoreBoxImage != null) {
       final scoreStr = displayScore.toInt().toString();
       const scoreFontSize = 16.0;
-      final sw = bw * 0.48;
-      final sh = sw * (_scoreBoxImage!.height / _scoreBoxImage!.width);
       canvas.drawImageRect(
         _scoreBoxImage!,
         Rect.fromLTWH(
@@ -2359,10 +2681,7 @@ class TetrisGame extends FlameGame
     if (_bestScoreBoxImage != null) {
       final bestStr = best.toString();
       const bestFontSize = 16.0;
-      final bsw = bw * 0.48;
-      final bsh =
-          bsw * (_bestScoreBoxImage!.height / _bestScoreBoxImage!.width);
-      final sh = bw * 0.48 * (_scoreBoxImage!.height / _scoreBoxImage!.width);
+      final bsh = ssBw * (_bestScoreBoxImage!.height / _bestScoreBoxImage!.width);
       final bestTextOffsetX = bw * 0.01;
       final bestTextOffsetY = bw * 0.005;
       canvas.drawImageRect(
@@ -2373,18 +2692,43 @@ class TetrisGame extends FlameGame
           _bestScoreBoxImage!.width.toDouble(),
           _bestScoreBoxImage!.height.toDouble(),
         ),
-        Rect.fromLTWH(boardX + bw * 0.52, boardY - sh - 8, bsw, bsh),
+        Rect.fromLTWH(boardX + sw + gap, boardY - sh - 8, ssBw, bsh),
         Paint(),
       );
       _drawTextCentered(
         canvas,
         bestStr,
-        boardX + bw * 0.52 + bsw / 2 + 10 + bestTextOffsetX,
+        boardX + sw + gap + ssBw / 2 + 10 + bestTextOffsetX,
         boardY - sh / 2 - 10 + bestTextOffsetY,
         bestFontSize,
         const Color(0xFFFFC944),
         bold: true,
         fontWeight: FontWeight.w800,
+      );
+    }
+
+    // Pause butonu — ortada
+    if (_pauseBtnImage != null) {
+      final pbx = boardX + bw * 0.435;
+      final pby = boardY - 48.0;
+      canvas.drawImageRect(
+        _pauseBtnImage!,
+        Rect.fromLTWH(
+          0,
+          0,
+          _pauseBtnImage!.width.toDouble(),
+          _pauseBtnImage!.height.toDouble(),
+        ),
+        Rect.fromLTWH(pbx, pby, pauseBtnSize, pauseBtnSize),
+        Paint(),
+      );
+      _pauseBtnRect = Rect.fromLTWH(pbx, pby, pauseBtnSize, pauseBtnSize);
+    } else {
+      _pauseBtnRect = Rect.fromLTWH(
+        boardX + bw * 0.435,
+        boardY - 48.0,
+        pauseBtnSize,
+        pauseBtnSize,
       );
     }
 
@@ -2398,7 +2742,12 @@ class TetrisGame extends FlameGame
       // Buton tam opak
       canvas.drawImageRect(
         _yuzdeBarImage!,
-        Rect.fromLTWH(0, 0, _yuzdeBarImage!.width.toDouble(), _yuzdeBarImage!.height.toDouble()),
+        Rect.fromLTWH(
+          0,
+          0,
+          _yuzdeBarImage!.width.toDouble(),
+          _yuzdeBarImage!.height.toDouble(),
+        ),
         Rect.fromLTWH(barX, barY, barW, barH),
         Paint()..filterQuality = FilterQuality.high,
       );
@@ -2466,7 +2815,8 @@ class TetrisGame extends FlameGame
 
       // Yüzde sayacı — barın ortasında (her zaman gösterilsin)
       final pct = _meterDisplay.clamp(0.0, 100.0);
-      final pctStr = '${pct == 0.0 ? '0' : pct.toStringAsFixed(1).replaceFirst(RegExp(r'^0'), '')}%';
+      final pctStr =
+          '${pct == 0.0 ? '0' : pct.toStringAsFixed(1).replaceFirst(RegExp(r'^0'), '')}%';
       final pctArea = Rect.fromLTWH(
         barX + barW * 0.35,
         barY + fillPadY,
@@ -2658,7 +3008,167 @@ class TetrisGame extends FlameGame
     final bw = kCols * kCell, bh = kRows * kCell;
 
     // Pause
-    if (paused && gameActive) {
+    if (paused && gameActive && _pauseMenuImage != null) {
+      canvas.drawRect(
+        Rect.fromLTWH(0, 0, size.x, size.y),
+        Paint()..color = Colors.black.withValues(alpha: 0.75),
+      );
+
+      final pw = size.x * 0.80;
+      final ph = pw * (_pauseMenuImage!.height / _pauseMenuImage!.width);
+      final px = (size.x - pw) / 2;
+      final py = (size.y - ph) / 2;
+
+      canvas.drawImageRect(
+        _pauseMenuImage!,
+        Rect.fromLTWH(
+          0,
+          0,
+          _pauseMenuImage!.width.toDouble(),
+          _pauseMenuImage!.height.toDouble(),
+        ),
+        Rect.fromLTWH(px, py, pw, ph),
+        Paint(),
+      );
+
+      // PAUSE başlık yazısı — görselin üst kısmında
+      final pauseText = L10n.t('pause');
+      const pauseRefLen = 5; // English "PAUSE"
+      final effectivePauseLen = math.max(pauseText.length, pauseRefLen);
+      final pauseExtraChars = (effectivePauseLen - pauseRefLen).clamp(0, 20);
+
+      // Per-language visual adjustments
+      final lang = L10n.lang;
+      double langScale = 1.0;
+      double wMul = 1.0;   // width multiplier (controls font size via width constraint)
+      double dxMul = 0.00; // additional x offset as fraction of pw
+      double dyMul = 0.00; // additional y offset as fraction of ph
+      if (lang == 'tr') {
+        langScale = 1.464;
+        wMul = 1.10; // +10% width so the while-loop shrink stops earlier → bigger font
+        dxMul = -0.015; // shift left to keep text centered with wider area
+        dyMul = -0.01;
+      } else if (lang == 'th') {
+        langScale = 2.0; // 2x for Thai
+        dxMul = 0.02;
+        dyMul = -0.04; // move Thai further up by additional 0.03
+      }
+
+      // Keep the title area base constant; apply language scale to height only.
+      final pauseTitleRect = Rect.fromLTWH(
+        px + pw * (0.26 + dxMul),
+        py + ph * (0.045 + dyMul),
+        pw * 0.50 * wMul,
+        ph * 0.095 * langScale,
+      );
+      _drawCurvedOutlineText(canvas, pauseText, pauseTitleRect, Colors.white, const Color(0xFF6A0FD4), bold: true);
+
+      final resumeRect = Rect.fromLTWH(
+        px + pw * 0.31,
+        py + ph * 0.272,
+        pw * 0.55,
+        ph * 0.077,
+      );
+      _drawOutlineText(
+        canvas,
+        L10n.t('resume'),
+        resumeRect,
+        Colors.white,
+        const Color(0xFF4CAF50),
+        bold: true,
+      );
+      _pauseResumeRect = Rect.fromLTWH(
+        px + pw * 0.15,
+        py + ph * 0.25,
+        pw * 0.70,
+        ph * 0.11,
+      );
+
+      final restartRect = Rect.fromLTWH(
+        px + pw * 0.29,
+        py + ph * 0.446,
+        pw * 0.572,
+        ph * 0.077,
+      );
+      _drawOutlineText(
+        canvas,
+        L10n.t('restart'),
+        restartRect,
+        Colors.white,
+        const Color(0xFFFF9800),
+        bold: true,
+      );
+      _pauseRestartRect = Rect.fromLTWH(
+        px + pw * 0.15,
+        py + ph * 0.45,
+        pw * 0.70,
+        ph * 0.11,
+      );
+
+      final homeRect = Rect.fromLTWH(
+        px + pw * 0.31,
+        py + ph * 0.620,
+        pw * 0.528,
+        ph * 0.077,
+      );
+      _drawOutlineText(
+        canvas,
+        L10n.t('menu'),
+        homeRect,
+        Colors.white,
+        const Color(0xFF2196F3),
+        bold: true,
+      );
+      _pauseHomeRect = Rect.fromLTWH(
+        px + pw * 0.15,
+        py + ph * 0.64,
+        pw * 0.70,
+        ph * 0.11,
+      );
+
+      final sfxBtn = Rect.fromLTWH(
+        px + pw * 0.20,
+        py + ph * 0.795,
+        pw * 0.198,
+        ph * 0.14,
+      );
+      _pauseSfxRect = sfxBtn;
+      if (!SoundManager.enabled) {
+        canvas.drawRRect(
+          RRect.fromRectAndRadius(sfxBtn, const Radius.circular(12)),
+          Paint()..color = Colors.black.withValues(alpha: 0.5),
+        );
+        _drawCross(canvas, sfxBtn);
+      }
+      if (_pauseSfxFlash > 0) {
+        canvas.drawRRect(
+          RRect.fromRectAndRadius(sfxBtn, const Radius.circular(12)),
+          Paint()..color = Colors.white.withValues(alpha: _pauseSfxFlash * 0.5),
+        );
+      }
+
+      final musicBtn = Rect.fromLTWH(
+        px + pw * 0.565,
+        py + ph * 0.795,
+        pw * 0.198,
+        ph * 0.14,
+      );
+      _pauseMusicRect = musicBtn;
+      if (!_musicEnabled) {
+        canvas.drawRRect(
+          RRect.fromRectAndRadius(musicBtn, const Radius.circular(12)),
+          Paint()..color = Colors.black.withValues(alpha: 0.5),
+        );
+        _drawCross(canvas, musicBtn);
+      }
+      if (_pauseMusicFlash > 0) {
+        canvas.drawRRect(
+          RRect.fromRectAndRadius(musicBtn, const Radius.circular(12)),
+          Paint()
+            ..color = Colors.white.withValues(alpha: _pauseMusicFlash * 0.5),
+        );
+      }
+    } else if (paused && gameActive) {
       canvas.drawRect(
         Rect.fromLTWH(boardX, boardY, bw, bh),
         Paint()..color = Colors.black.withValues(alpha: 0.85),
@@ -2789,18 +3299,32 @@ class TetrisGame extends FlameGame
 
       // Sol turuncu buton — restart
       final restartText = L10n.t('restart');
-      final restartH = restartText.length > 9 ? gh * 0.0525 : restartText.length > 7 ? gh * 0.0595 : gh * 0.07;
+      final restartH = restartText.length > 9
+          ? gh * 0.0525
+          : restartText.length > 7
+          ? gh * 0.0595
+          : gh * 0.07;
       final restartRect = Rect.fromLTWH(
         gx + gw * 0.18,
         gy + gh * 0.82 + (gh * 0.07 - restartH) / 2 + gh * 0.01,
         gw * 0.28,
         restartH,
       );
-      _drawFittedText(canvas, restartText, restartRect, Colors.white, bold: true);
+      _drawFittedText(
+        canvas,
+        restartText,
+        restartRect,
+        Colors.white,
+        bold: true,
+      );
 
       // Sağ mavi buton — menu
       final menuText = L10n.t('menu');
-      final menuH = menuText.length > 9 ? gh * 0.0525 : menuText.length > 7 ? gh * 0.0595 : gh * 0.07;
+      final menuH = menuText.length > 9
+          ? gh * 0.0525
+          : menuText.length > 7
+          ? gh * 0.0595
+          : gh * 0.07;
       final menuRect = Rect.fromLTWH(
         gx + gw * 0.60,
         gy + gh * 0.82 + (gh * 0.07 - menuH) / 2 + gh * 0.01,
