@@ -42,7 +42,9 @@ class Board {
   }
 
   void flipVertical(Map<String, int> frozenSet) {
-    debugPrint('flipVertical çağrıldı — cells[0][0]=${cells[0][0]}, cells[${kRows - 1}][0]=${cells[kRows - 1][0]}');
+    debugPrint(
+      'flipVertical çağrıldı — cells[0][0]=${cells[0][0]}, cells[${kRows - 1}][0]=${cells[kRows - 1][0]}',
+    );
     for (int c = 0; c < kCols; c++) {
       int top = 0;
       int bottom = kRows - 1;
@@ -64,7 +66,9 @@ class Board {
         bottom--;
       }
     }
-    debugPrint('flipVertical sonrası — cells[0][0]=${cells[0][0]}, cells[${kRows - 1}][0]=${cells[kRows - 1][0]}');
+    debugPrint(
+      'flipVertical sonrası — cells[0][0]=${cells[0][0]}, cells[${kRows - 1}][0]=${cells[kRows - 1][0]}',
+    );
   }
 
   void applyReverseGravity(Map<String, int> frozenSet) {
@@ -108,26 +112,33 @@ class Board {
       for (int c = 0; c < kCols; c++) {
         for (int r = kRows - 2; r >= 0; r--) {
           final v = cells[r][c];
-            if (v > 0 && v == cells[r + 1][c] && v < 32768 &&
+          if (v > 0 &&
+              v == cells[r + 1][c] &&
+              v < 4194304 &&
               !frozenCols.containsKey(c) &&
               !frozenSet.containsKey('$r,$c') &&
               !frozenSet.containsKey('${r + 1},$c') &&
-              !isObstacle(v) && !isObstacle(cells[r + 1][c])) {
+              !isObstacle(v) &&
+              !isObstacle(cells[r + 1][c])) {
             final newVal = v * 2;
             cells[r + 1][c] = newVal;
             cells[r][c] = 0;
             frozenSet.remove('${r + 1},$c');
             frozenSet.remove('$r,$c');
             final mult = _getMultiplier(r, c, multiplierLines);
-            final bigBonus = newVal >= 4096 ? newVal : (newVal >= 2048 ? newVal ~/ 2 : 0);
-            events.add(MergeEvent(
-              cx: c * kCell + kCell / 2,
-              cy: (r + 1) * kCell + kCell / 2,
-              val: newVal,
-              baseScore: newVal * mult + bigBonus,
-              mult: mult,
-              bigBonus: bigBonus,
-            ));
+            final bigBonus = newVal >= 4096
+                ? newVal
+                : (newVal >= 2048 ? newVal ~/ 2 : 0);
+            events.add(
+              MergeEvent(
+                cx: c * kCell + kCell / 2,
+                cy: (r + 1) * kCell + kCell / 2,
+                val: newVal,
+                baseScore: newVal * mult + bigBonus,
+                mult: mult,
+                bigBonus: bigBonus,
+              ),
+            );
             anyMerged = true;
           }
         }
@@ -137,8 +148,11 @@ class Board {
       for (int r = 0; r < kRows; r++) {
         for (int c = 0; c < kCols - 1; c++) {
           final v = cells[r][c];
-            if (v > 0 && v == cells[r][c + 1] && v < 32768 &&
-              !frozenCols.containsKey(c) && !frozenCols.containsKey(c + 1) &&
+          if (v > 0 &&
+              v == cells[r][c + 1] &&
+              v < 4194304 &&
+              !frozenCols.containsKey(c) &&
+              !frozenCols.containsKey(c + 1) &&
               !frozenSet.containsKey('$r,$c') &&
               !frozenSet.containsKey('$r,${c + 1}') &&
               !isObstacle(v)) {
@@ -148,15 +162,19 @@ class Board {
             frozenSet.remove('$r,${c + 1}');
             frozenSet.remove('$r,$c');
             final mult = _getMultiplier(r, c, multiplierLines);
-            final bigBonus = newVal >= 4096 ? newVal : (newVal >= 2048 ? newVal ~/ 2 : 0);
-            events.add(MergeEvent(
-              cx: (c + 1) * kCell + kCell / 2,
-              cy: r * kCell + kCell / 2,
-              val: newVal,
-              baseScore: newVal * mult + bigBonus,
-              mult: mult,
-              bigBonus: bigBonus,
-            ));
+            final bigBonus = newVal >= 4096
+                ? newVal
+                : (newVal >= 2048 ? newVal ~/ 2 : 0);
+            events.add(
+              MergeEvent(
+                cx: (c + 1) * kCell + kCell / 2,
+                cy: r * kCell + kCell / 2,
+                val: newVal,
+                baseScore: newVal * mult + bigBonus,
+                mult: mult,
+                bigBonus: bigBonus,
+              ),
+            );
             anyMerged = true;
           }
         }
@@ -186,13 +204,21 @@ class MergeEvent {
   final double cx, cy;
   final int val, baseScore, mult, bigBonus;
   MergeEvent({
-    required this.cx, required this.cy, required this.val,
-    required this.baseScore, this.mult = 1, this.bigBonus = 0,
+    required this.cx,
+    required this.cy,
+    required this.val,
+    required this.baseScore,
+    this.mult = 1,
+    this.bigBonus = 0,
   });
 }
 
 class MultiplierLine {
   final bool isRow;
   final int index, mult;
-  MultiplierLine({required this.isRow, required this.index, required this.mult});
+  MultiplierLine({
+    required this.isRow,
+    required this.index,
+    required this.mult,
+  });
 }

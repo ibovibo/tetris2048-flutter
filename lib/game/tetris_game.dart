@@ -155,6 +155,14 @@ class TetrisGame extends FlameGame
       '4096': 'blokk_4096',
       '8192': 'blokk_8192',
       '16384': 'blokk_16384',
+      '32768': 'blokk_32768',
+      '65536': 'blokk_65536',
+      '131072': 'blokk_131072',
+      '262144': 'blokk_262144',
+      '524288': 'blokk_524288',
+      '1048576': 'blokk_1048576',
+      '2097152': 'blokk_2097152',
+      '4194304': 'blokk_4194304',
       'joker': 'blokk_joker',
       'bomb': 'blokk_bomba',
       'ice': 'blokk_buz',
@@ -294,9 +302,6 @@ class TetrisGame extends FlameGame
       }
       if (event.logicalKey == LogicalKeyboardKey.escape) _togglePause();
       if (event.logicalKey == LogicalKeyboardKey.keyM) goToMenu();
-      if (kDebugMode && event.logicalKey == LogicalKeyboardKey.keyP) {
-        _debugInject32768();
-      }
       if (event.logicalKey == LogicalKeyboardKey.keyK) {
         _meter = 100.0;
         return KeyEventResult.handled;
@@ -611,18 +616,22 @@ class TetrisGame extends FlameGame
 
     var painters = buildPainters(fontSize);
     while (painters.fold<double>(0, (sum, tp) => sum + tp.width) +
-            (letters.length - 1) * (fontSize * 0.06) >
-        area.width &&
+                (letters.length - 1) * (fontSize * 0.06) >
+            area.width &&
         fontSize > 8) {
       fontSize -= 1;
       painters = buildPainters(fontSize);
     }
 
-    final totalWidth = painters.fold<double>(0, (sum, tp) => sum + tp.width) +
-      (letters.length - 1) * (fontSize * 0.06);
+    final totalWidth =
+        painters.fold<double>(0, (sum, tp) => sum + tp.width) +
+        (letters.length - 1) * (fontSize * 0.06);
     final startX = area.left + (area.width - totalWidth) / 2;
     // Use actual painter heights to center vertically (fixes CJK and shrink alignment)
-    final maxPainterHeight = painters.fold<double>(0.0, (m, tp) => math.max(m, tp.height));
+    final maxPainterHeight = painters.fold<double>(
+      0.0,
+      (m, tp) => math.max(m, tp.height),
+    );
     final baseY = area.top + (area.height - maxPainterHeight) / 2;
     // Keep the title curve subtle.
     final curveHeight = area.height * 0.08;
@@ -678,15 +687,6 @@ class TetrisGame extends FlameGame
       // even smaller extra gap between letters
       cursorX += tp.width + fontSize * 0.02;
     }
-  }
-
-  void _debugInject32768() {
-    if (!gameActive) return;
-    final r = (kRows / 2).floor();
-    final c = (kCols / 2).floor();
-    board.set(r, c, 32768);
-    debugPrint('DEBUG: 32768 tile injected at ($r,$c)');
-    _checkMilestone(32768);
   }
 
   void _togglePause() {
@@ -1033,6 +1033,7 @@ class TetrisGame extends FlameGame
         _meter = (_meter + gain).clamp(0.0, 100.0).toDouble();
         if (_meter >= 100.0) {
           _meter = 0.0;
+          _meterDisplay = 0.0;
           _triggerMaxExplosion();
         }
       },
@@ -1040,8 +1041,6 @@ class TetrisGame extends FlameGame
         _pendingSpecialCount++;
       },
     ).resolveAll();
-    // 32768 özel parçalardan (Joker/X2 vb.) oluştuysa da patlamayı tetikle.
-    _checkBoardForMaxTileExplosion();
 
     final events = board.resolveMerges(
       frozenSet,
@@ -1127,6 +1126,7 @@ class TetrisGame extends FlameGame
       _meter = (_meter + meterGain).clamp(0.0, 100.0).toDouble();
       if (_meter >= 100.0) {
         _meter = 0.0;
+        _meterDisplay = 0.0;
         _triggerMaxExplosion();
       }
     } else {
@@ -1165,18 +1165,6 @@ class TetrisGame extends FlameGame
       return;
     }
     _updateLevel();
-  }
-
-  void _checkBoardForMaxTileExplosion() {
-    if (_maxExplosion != null) return;
-    for (int r = 0; r < kRows; r++) {
-      for (int c = 0; c < kCols; c++) {
-        final v = board.get(r, c);
-        if (v >= 32768) {
-          return;
-        }
-      }
-    }
   }
 
   void _pickNewMultiplier() {
@@ -1266,10 +1254,17 @@ class TetrisGame extends FlameGame
       8192: 10.5,
       16384: 13.5,
       32768: 17.5,
+      65536: 22.0,
+      131072: 27.0,
+      262144: 33.0,
+      524288: 39.0,
+      1048576: 45.0,
+      2097152: 51.0,
+      4194304: 57.0,
     };
     if (table.containsKey(value)) return table[value]!;
-    if (value > 32768) {
-      return 17.5 + (math.log(value / 32768) / math.log(2)) * 5.0;
+    if (value > 4194304) {
+      return 57.0 + (math.log(value / 4194304) / math.log(2)) * 6.0;
     }
     return 0.5;
   }
@@ -1303,24 +1298,7 @@ class TetrisGame extends FlameGame
       4096,
       8192,
       16384,
-      32768,
     ];
-    const msgs = {
-      8: 'İlk 8!',
-      16: '16 Yaptın!',
-      32: '32!',
-      64: '64! Harika!',
-      128: '128! Müthiş!',
-      256: '256! Süper!',
-      512: '512! Efsane!',
-      1024: '1024! İnanılmaz!',
-      2048: '2048! KAZANDIN!',
-      4096: '4096! EFSANE!',
-      8192: '8192! TANRISAL!',
-      16384: '16384! MÜMKÜN MÜ?!',
-      32768: '32768! OYUNUN TANRISI!',
-    };
-
     if (milestones.contains(val) && !seenMilestones.contains(val)) {
       seenMilestones.add(val);
     }
@@ -1328,50 +1306,14 @@ class TetrisGame extends FlameGame
 
   void _triggerMaxExplosion() {
     if (_maxExplosion != null) return; // zaten çalışıyorsa çağırma
-    SoundManager.maxExplosion32k();
     SoundManager.pauseMusic();
+    SoundManager.meterExplosion();
     // Mevcut mevsimi hemen bitir
     if (activeSeason != null) unawaited(_endSeason());
 
-    // Boardda 32768+ olan hücreyi bul
-    for (int r = 0; r < kRows; r++) {
-      for (int c = 0; c < kCols; c++) {
-        if (board.get(r, c) >= 32768) {
-          // 4x4 alan temizle
-          for (int dr = -1; dr <= 2; dr++) {
-            for (int dc = -1; dc <= 2; dc++) {
-              final nr = r + dr, nc = c + dc;
-              if (nr >= 0 && nr < kRows && nc >= 0 && nc < kCols) {
-                board.set(nr, nc, 0);
-                particles.spawnExplosion(
-                  nc * kCell + kCell / 2,
-                  nr * kCell + kCell / 2,
-                );
-              }
-            }
-          }
-          if (_gravityReversed) {
-            board.applyReverseGravity(frozenSet);
-          } else {
-            board.applyGravity(frozenSet);
-          }
-          _addScore(100000);
-          screenShake = 1.2;
+    _addScore(100000);
+    screenShake = 1.2;
 
-          // Süper patlama animasyonunu başlat
-          int seasonIdx;
-          do {
-            seasonIdx = _rng.nextInt(kSeasons.length);
-          } while (kSeasons[seasonIdx].key == _lastSeason ||
-              kSeasons[seasonIdx].key == _secondLastSeason);
-          _pendingSeasonIdx = seasonIdx;
-          _maxExplosion = MaxExplosion(selectedSeason: seasonIdx);
-          return;
-        }
-      }
-    }
-
-    // Boardda bulunamadıysa bile animasyonu başlat
     int seasonIdx;
     do {
       seasonIdx = _rng.nextInt(kSeasons.length);
@@ -1379,8 +1321,6 @@ class TetrisGame extends FlameGame
         kSeasons[seasonIdx].key == _secondLastSeason);
     _pendingSeasonIdx = seasonIdx;
     _maxExplosion = MaxExplosion(selectedSeason: seasonIdx);
-    _addScore(100000);
-    screenShake = 1.2;
   }
 
   Future<void> _startRandomSeason() async {
@@ -2304,52 +2244,69 @@ class TetrisGame extends FlameGame
     String? imgKey;
     if (val == 2) {
       imgKey = '2';
-    } else if (val == 4)
+    } else if (val == 4) {
       imgKey = '4';
-    else if (val == 8)
+    } else if (val == 8) {
       imgKey = '8';
-    else if (val == 16)
+    } else if (val == 16) {
       imgKey = '16';
-    else if (val == 32)
+    } else if (val == 32) {
       imgKey = '32';
-    else if (val == 64)
+    } else if (val == 64) {
       imgKey = '64';
-    else if (val == 128)
+    } else if (val == 128) {
       imgKey = '128';
-    else if (val == 256)
+    } else if (val == 256) {
       imgKey = '256';
-    else if (val == 512)
+    } else if (val == 512) {
       imgKey = '512';
-    else if (val == 1024)
+    } else if (val == 1024) {
       imgKey = '1024';
-    else if (val == 2048)
+    } else if (val == 2048) {
       imgKey = '2048';
-    else if (val == 4096)
+    } else if (val == 4096) {
       imgKey = '4096';
-    else if (val == 8192)
+    } else if (val == 8192) {
       imgKey = '8192';
-    else if (val >= 16384)
+    } else if (val == 32768) {
+      imgKey = '32768';
+    } else if (val == 65536) {
+      imgKey = '65536';
+    } else if (val == 131072) {
+      imgKey = '131072';
+    } else if (val == 262144) {
+      imgKey = '262144';
+    } else if (val == 524288) {
+      imgKey = '524288';
+    } else if (val == 1048576) {
+      imgKey = '1048576';
+    } else if (val == 2097152) {
+      imgKey = '2097152';
+    } else if (val == 4194304) {
+      imgKey = '4194304';
+    } else if (val >= 16384) {
       imgKey = '16384';
-    else if (val == kJoker)
+    } else if (val == kJoker) {
       imgKey = 'joker';
-    else if (val == kBomb)
+    } else if (val == kBomb) {
       imgKey = 'bomb';
-    else if (val == kIce)
+    } else if (val == kIce) {
       imgKey = 'ice';
-    else if (val == kStar)
+    } else if (val == kStar) {
       imgKey = 'star';
-    else if (val == kX2)
+    } else if (val == kX2) {
       imgKey = 'x2';
-    else if (val == kX4)
+    } else if (val == kX4) {
       imgKey = 'x4';
-    else if (val == kX8)
+    } else if (val == kX8) {
       imgKey = 'x8';
-    else if (val == kX16)
+    } else if (val == kX16) {
       imgKey = 'x16';
-    else if (val == kMegaBomb)
+    } else if (val == kMegaBomb) {
       imgKey = 'megabomb';
-    else if (val == kChaos)
+    } else if (val == kChaos) {
       imgKey = 'chaos';
+    }
 
     if (imgKey != null && _blockImages.containsKey(imgKey)) {
       final img = _blockImages[imgKey]!;
@@ -2681,7 +2638,8 @@ class TetrisGame extends FlameGame
     if (_bestScoreBoxImage != null) {
       final bestStr = best.toString();
       const bestFontSize = 16.0;
-      final bsh = ssBw * (_bestScoreBoxImage!.height / _bestScoreBoxImage!.width);
+      final bsh =
+          ssBw * (_bestScoreBoxImage!.height / _bestScoreBoxImage!.width);
       final bestTextOffsetX = bw * 0.01;
       final bestTextOffsetY = bw * 0.005;
       canvas.drawImageRect(
@@ -3040,12 +2998,14 @@ class TetrisGame extends FlameGame
       // Per-language visual adjustments
       final lang = L10n.lang;
       double langScale = 1.0;
-      double wMul = 1.0;   // width multiplier (controls font size via width constraint)
+      double wMul =
+          1.0; // width multiplier (controls font size via width constraint)
       double dxMul = 0.00; // additional x offset as fraction of pw
       double dyMul = 0.00; // additional y offset as fraction of ph
       if (lang == 'tr') {
         langScale = 1.464;
-        wMul = 1.10; // +10% width so the while-loop shrink stops earlier → bigger font
+        wMul =
+            1.10; // +10% width so the while-loop shrink stops earlier → bigger font
         dxMul = -0.015; // shift left to keep text centered with wider area
         dyMul = -0.01;
       } else if (lang == 'th') {
@@ -3061,7 +3021,14 @@ class TetrisGame extends FlameGame
         pw * 0.50 * wMul,
         ph * 0.095 * langScale,
       );
-      _drawCurvedOutlineText(canvas, pauseText, pauseTitleRect, Colors.white, const Color(0xFF6A0FD4), bold: true);
+      _drawCurvedOutlineText(
+        canvas,
+        pauseText,
+        pauseTitleRect,
+        Colors.white,
+        const Color(0xFF6A0FD4),
+        bold: true,
+      );
 
       final resumeRect = Rect.fromLTWH(
         px + pw * 0.31,

@@ -67,11 +67,15 @@ class SoundManager {
   }
 
   static void stopMusic() {
-    try { FlameAudio.bgm.stop(); } catch (_) {}
+    try {
+      FlameAudio.bgm.stop();
+    } catch (_) {}
   }
 
   static void pauseMusic() {
-    try { FlameAudio.bgm.audioPlayer.pause(); } catch (_) {}
+    try {
+      FlameAudio.bgm.audioPlayer.pause();
+    } catch (_) {}
   }
 
   static Future<void> resumeMusic() async {
@@ -83,10 +87,12 @@ class SoundManager {
     } catch (_) {}
   }
 
-  // ── 32k patlama — animasyon boyunca çalar ────────────────
-  static Future<void> maxExplosion32k() async {
+  // ── Meter patlaması — animasyon boyunca çalar ────────────────
+  static Future<void> meterExplosion() async {
     if (!enabled) return;
-    try { FlameAudio.bgm.audioPlayer.pause(); } catch (_) {} // stop değil pause
+    try {
+      FlameAudio.bgm.audioPlayer.pause();
+    } catch (_) {} // stop değil pause
     try {
       _explosionPlayer = AudioPlayer();
       await _explosionPlayer!.setVolume(volume * 0.9);
@@ -111,15 +117,17 @@ class SoundManager {
     _seasonMusicPlaying = true; // önce flag'i set et
     await stopExplosionMusic();
     await stopSeasonMusic();
-    try { FlameAudio.bgm.audioPlayer.pause(); } catch (_) {}
+    try {
+      FlameAudio.bgm.audioPlayer.pause();
+    } catch (_) {}
 
     final files = {
-      'bomb':       'bombamevsim.mp3',
-      'ice':        'kismevsim.mp3',
-      'mystery':    'gizemmevsim.mp3',
-      'mirror':     'hizmevsim.mp3',
-      'gravity':    'carpanmevsim.mp3',
-      'chaos':      'degistokusmevsim.mp3',
+      'bomb': 'bombamevsim.mp3',
+      'ice': 'kismevsim.mp3',
+      'mystery': 'gizemmevsim.mp3',
+      'mirror': 'hizmevsim.mp3',
+      'gravity': 'carpanmevsim.mp3',
+      'chaos': 'degistokusmevsim.mp3',
     };
     final file = files[season];
     if (file == null) {
@@ -156,7 +164,9 @@ class SoundManager {
   // ── Efektler ──────────────────────────────────────────────
   static void megaBomb() {
     if (!enabled) return;
-    try { FlameAudio.play('buyukbomba.mp3', volume: volume * 0.9); } catch (_) {}
+    try {
+      FlameAudio.play('buyukbomba.mp3', volume: volume * 0.9);
+    } catch (_) {}
   }
 
   static void iceJoker() {
@@ -167,8 +177,9 @@ class SoundManager {
         await player.setVolume((volume * 1.2).clamp(0.0, 1.0));
         final duration = await player.getDuration();
         if (duration != null) {
-          await player.seek(Duration(
-            milliseconds: (duration.inMilliseconds * 0.10).round()));
+          await player.seek(
+            Duration(milliseconds: (duration.inMilliseconds * 0.10).round()),
+          );
         }
       });
     } catch (_) {}
@@ -176,7 +187,9 @@ class SoundManager {
 
   static void gameOver() {
     if (!enabled) return;
-    try { FlameAudio.play('gameover.mp3', volume: volume * 0.9); } catch (_) {}
+    try {
+      FlameAudio.play('gameover.mp3', volume: volume * 0.9);
+    } catch (_) {}
   }
 
   static void starJoker() {
@@ -192,8 +205,11 @@ class SoundManager {
 
   static void bomb() {
     if (!enabled) return;
-    try { FlameAudio.play('kucukbomba.mp3', volume: volume * 1.3); } catch (_) {}
+    try {
+      FlameAudio.play('kucukbomba.mp3', volume: volume * 1.3);
+    } catch (_) {}
   }
+
   static void merge(int val) {}
   static void combo(int n) {}
   static void level() {}

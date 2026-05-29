@@ -241,7 +241,7 @@ class SpecialResolver {
           if (v <= 0 || isObstacle(v)) continue;
           if (claimed.contains('$nr,$nc')) continue;
           claimed.add('$nr,$nc');
-          final newVal = (v * mult).clamp(0, 32768);
+          final newVal = (v * mult).clamp(0, 4194304);
           board.set(nr, nc, newVal);
           addScore(newVal);
           spawnParticle(nc * kCell + kCell/2, nr * kCell + kCell/2, newVal);
@@ -254,7 +254,7 @@ class SpecialResolver {
             final v = board.get(nr, c);
             if (v > 0 && !isObstacle(v) && !claimed.contains('$nr,$c')) {
               claimed.add('$nr,$c');
-              final newVal = (v * mult).clamp(0, 32768);
+              final newVal = (v * mult).clamp(0, 4194304);
               board.set(nr, c, newVal);
               onMeterGain?.call(_getMergeFillStatic(newVal));
               break;
