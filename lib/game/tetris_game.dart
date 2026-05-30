@@ -404,7 +404,7 @@ class TetrisGame extends FlameGame
   }
 
   @override
-  void onTapDown(TapDownInfo info) {
+  void onTapDown(TapDownInfo info) async {
     if (_evolutionActive) return;
     final tap = info.eventPosition.global;
     final bw = kCols * kCell;
@@ -432,6 +432,8 @@ class TetrisGame extends FlameGame
       if (_pauseSfxRect?.contains(p) == true) {
         SoundManager.enabled = !SoundManager.enabled;
         _pauseSfxFlash = 1.0;
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setBool('sfx_enabled', SoundManager.enabled);
         return;
       }
       if (_pauseMusicRect?.contains(p) == true) {
@@ -442,6 +444,8 @@ class TetrisGame extends FlameGame
           SoundManager.stopMusic();
         }
         _pauseMusicFlash = 1.0;
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setBool('music_enabled', _musicEnabled);
         return;
       }
       if (_pauseMenuImage == null) {
@@ -3285,10 +3289,10 @@ class TetrisGame extends FlameGame
       );
 
       final sfxBtn = Rect.fromLTWH(
-        px + pw * 0.20,
-        py + ph * 0.795,
+        px + pw * 0.22,
+        py + ph * 0.790,
         pw * 0.198,
-        ph * 0.14,
+        ph * 0.126,
       );
       _pauseSfxRect = sfxBtn;
       if (!SoundManager.enabled) {
@@ -3309,7 +3313,7 @@ class TetrisGame extends FlameGame
         px + pw * 0.565,
         py + ph * 0.795,
         pw * 0.198,
-        ph * 0.14,
+        ph * 0.126,
       );
       _pauseMusicRect = musicBtn;
       if (!_musicEnabled) {

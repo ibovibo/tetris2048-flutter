@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flame/game.dart';
 import 'package:flutter/material.dart';
 
@@ -218,11 +220,13 @@ class _MenuScreenState extends State<MenuScreen>
                     child: LayoutBuilder(
                       builder: (context, constraints) {
                         final settingsText = L10n.t('settings');
-                        final fontScaleValue = settingsText.length > 8
-                            ? 0.75
-                            : settingsText.length > 7
-                            ? 0.85
-                            : 1.0;
+                        final fontScaleValue = settingsText.length > 9
+                          ? pow(0.90, settingsText.length - 9).toDouble() * 0.65
+                          : settingsText.length > 8
+                          ? 0.70
+                          : settingsText.length > 7
+                          ? 0.80
+                          : 1.0;
                         final h = constraints.maxHeight * fontScaleValue;
                         return Transform.translate(
                           offset: Offset(0, -constraints.maxHeight * 0.03),

@@ -241,7 +241,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           ? Colors.black
                           : Colors.white,
                       fontWeight: FontWeight.bold,
-                      fontSize: 12,
+                        fontSize: 13,
                       shadows: lang.$4 == Colors.white
                           ? const []
                           : const [
@@ -258,7 +258,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 if (selected)
                   Icon(
                     Icons.check_circle,
-                    color: lang.$4 == Colors.white ? Colors.black : Colors.white,
+                    color: lang.$4 == Colors.white
+                        ? Colors.black
+                        : Colors.white,
                     size: 14,
                   ),
               ],
