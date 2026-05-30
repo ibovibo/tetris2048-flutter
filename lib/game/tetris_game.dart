@@ -47,8 +47,11 @@ class TetrisGame extends FlameGame
   double _meterDisplay = 0.0; // görsel meter — gerçek meter'a smooth yaklaşır
   int _pendingSpecialCount = 0;
   bool _gravityReversed = false;
-  bool _mirrorActive = false;
-  Piece? _mirrorPiece;
+  bool _doubleVisionActive = false;
+  Piece? _fakePiece;
+  bool _fakeIsLeft = false;
+  double _fakeDissolveTimer = 0.0;
+  bool _fakeDissolving = false;
   int streak = 0;
   double streakTimer = 0;
   int moveCount = 0;
@@ -79,6 +82,16 @@ class TetrisGame extends FlameGame
   double _seasonBombTimer = 0; // bomba mevsimi için
   int _pendingSeasonIdx = 0;
   bool _mysteryActive = false;
+
+  // Evrim animasyonu
+  bool _evolutionActive = false;
+  double _evolutionTimer = 0.0;
+  int _evolutionFrom = 0;
+  int _evolutionTo = 0;
+  final Set<int> _evolvedThresholds = {};
+  List<(int, int)> _evolutionTargets = [];
+  bool _evolutionBlastDone = false;
+  double _evolutionFlash = 0.0;
 
   double boardX = 0;
   double boardY = 0;
@@ -163,6 +176,13 @@ class TetrisGame extends FlameGame
       '1048576': 'blokk_1048576',
       '2097152': 'blokk_2097152',
       '4194304': 'blokk_4194304',
+      '8388608': 'blokk_8388608',
+      '16777216': 'blokk_16777216',
+      '33554432': 'blokk_33554432',
+      '67108864': 'blokk_67108864',
+      '134217728': 'blokk_134217728',
+      '268435456': 'blokk_268435456',
+      '536870912': 'blokk_536870912',
       'joker': 'blokk_joker',
       'bomb': 'blokk_bomba',
       'ice': 'blokk_buz',
@@ -238,8 +258,11 @@ class TetrisGame extends FlameGame
     _meterDisplay = 0.0;
     _pendingSpecialCount = 0;
     _gravityReversed = false;
-    _mirrorActive = false;
-    _mirrorPiece = null;
+    _doubleVisionActive = false;
+    _fakePiece = null;
+    _fakeIsLeft = false;
+    _fakeDissolveTimer = 0.0;
+    _fakeDissolving = false;
     speed = 540;
     dropTimer = 0;
     frozenSet = {};
@@ -255,6 +278,14 @@ class TetrisGame extends FlameGame
     seasonTurnsLeft = 0;
     _seasonBombTimer = 0;
     _mysteryActive = false;
+    _evolutionActive = false;
+    _evolutionTimer = 0.0;
+    _evolutionFrom = 0;
+    _evolutionTo = 0;
+    _evolvedThresholds.clear();
+    _evolutionTargets = [];
+    _evolutionBlastDone = false;
+    _evolutionFlash = 0.0;
     _glowCache.clear();
     particles.seasonBg.setSeason(null);
     multiplierLines.clear();
@@ -288,6 +319,7 @@ class TetrisGame extends FlameGame
     Set<LogicalKeyboardKey> keysPressed,
   ) {
     if (event is KeyDownEvent) {
+      if (_evolutionActive) return KeyEventResult.handled;
       if (event.logicalKey == LogicalKeyboardKey.keyD) {
         gameActive = false;
         return KeyEventResult.handled;
@@ -311,6 +343,11 @@ class TetrisGame extends FlameGame
         _startRandomSeason();
         return KeyEventResult.handled;
       }
+      if (event.logicalKey == LogicalKeyboardKey.keyA) {
+        _pendingSeasonIdx = kSeasons.indexWhere((s) => s.key == 'double_vision');
+        unawaited(_startRandomSeason());
+        return KeyEventResult.handled;
+      }
     }
     return KeyEventResult.handled;
   }
@@ -325,7 +362,7 @@ class TetrisGame extends FlameGame
 
   @override
   void onPanUpdate(DragUpdateInfo info) {
-    if (!gameActive || paused) return;
+    if (!gameActive || paused || _evolutionActive) return;
     _dragTotalX += info.delta.global.x;
     _dragTotalY += info.delta.global.y;
 
@@ -361,13 +398,14 @@ class TetrisGame extends FlameGame
 
   @override
   void onDoubleTapDown(TapDownInfo info) {
-    if (!gameActive || paused) return;
+    if (!gameActive || paused || _evolutionActive) return;
     if (_maxExplosion != null) return;
     _rotate();
   }
 
   @override
   void onTapDown(TapDownInfo info) {
+    if (_evolutionActive) return;
     final tap = info.eventPosition.global;
     final bw = kCols * kCell;
     final bh = kRows * kCell;
@@ -707,61 +745,21 @@ class TetrisGame extends FlameGame
     onPause?.call();
   }
 
-  // Mirror mevsiminde sadece 1x1 blok spawn et — jokerler olabilir, ancak "yokeden" (kStar) olmamalı
-  void _spawnMirrorPiece() {
-    int val;
-    // PieceGenerator.generate() hem normal hem özel parça döndürebiliyor.
-    // Burada jokerlere izin veriyoruz, fakat kStar (yokeden) gelirse yeniden üret.
-    do {
-      final p = PieceGenerator.generate(score, moveCount, season: activeSeason);
-      val = p.shape[0][0];
-    } while (val == kStar);
-
-    currentPiece.shape = [
-      [val],
-    ];
-
-    // Sol parça sadece 0 veya 1'de spawn olabilir
-    // Sol X=0 → Sağ X=3 (aralarında 2 boşluk: sütun 1,2)
-    // Sol X=1 → Sağ X=4 (aralarında 2 boşluk: sütun 2,3)
-    currentPiece.x = _rng.nextInt(2); // 0 veya 1
-
-    _mirrorPiece = Piece(
-      shape: [
-        [val],
-      ],
-      x: currentPiece.x + 3, // 0→3, 1→4
+  // Çift Görme mevsiminde sahte parçayı oluştur
+  void _spawnFakePiece() {
+    if (!_doubleVisionActive) return;
+    _fakeIsLeft = _rng.nextBool();
+    final cols = currentPiece.shape.isEmpty ? 1 : currentPiece.shape[0].length;
+    final offsetX = _fakeIsLeft ? -3 : 3;
+    final newX = (currentPiece.x + offsetX).clamp(0, kCols - cols);
+    _fakePiece = Piece(
+      shape: currentPiece.shape.map((row) => List<int>.from(row)).toList(),
+      x: newX,
       y: currentPiece.y,
       frozen: currentPiece.frozen,
     );
-  }
-
-  // Sol 3 sutun (0-2) icin gecerlilik kontrolu
-  bool _validLeft(List<List<int>> shape, int ox, int oy) {
-    for (int r = 0; r < shape.length; r++) {
-      for (int c = 0; c < shape[r].length; c++) {
-        if (shape[r][c] == 0) continue;
-        final x = ox + c, y = oy + r;
-        if (x < 0 || x > 2) return false;
-        if (y >= kRows) return false;
-        if (y >= 0 && board.cells[y][x] != 0) return false;
-      }
-    }
-    return true;
-  }
-
-  // Sağ 3 sütun (3-5) için geçerlilik kontrolü
-  bool _validRight(List<List<int>> shape, int ox, int oy) {
-    for (int r = 0; r < shape.length; r++) {
-      for (int c = 0; c < shape[r].length; c++) {
-        if (shape[r][c] == 0) continue;
-        final x = ox + c, y = oy + r;
-        if (x < 3 || x >= kCols) return false;
-        if (y >= kRows) return false;
-        if (y >= 0 && board.cells[y][x] != 0) return false;
-      }
-    }
-    return true;
+    _fakeDissolving = false;
+    _fakeDissolveTimer = 0.0;
   }
 
   bool _valid(List<List<int>> shape, int ox, int oy) {
@@ -785,34 +783,23 @@ class TetrisGame extends FlameGame
 
   void _moveLeft() {
     if (!gameActive || paused) return;
-    if (_mirrorActive && _mirrorPiece != null) {
-      final newLeft = currentPiece.x - 1;
-      final newRight = _mirrorPiece!.x - 1;
-      if (newLeft >= 0 && newRight - newLeft >= 3) {
-        // aralarında min 2 boşluk
-        currentPiece.x--;
-        _mirrorPiece!.x--;
-      }
-    } else {
-      if (_valid(currentPiece.shape, currentPiece.x - 1, currentPiece.y)) {
-        currentPiece.x--;
+    if (_valid(currentPiece.shape, currentPiece.x - 1, currentPiece.y)) {
+      currentPiece.x--;
+      if (_doubleVisionActive && _fakePiece != null && !_fakeDissolving) {
+        final newFakeX = _fakePiece!.x - 1;
+        if (newFakeX >= 0) _fakePiece!.x = newFakeX;
       }
     }
   }
 
   void _moveRight() {
     if (!gameActive || paused) return;
-    if (_mirrorActive && _mirrorPiece != null) {
-      final newLeft = currentPiece.x + 1;
-      final newRight = _mirrorPiece!.x + 1;
-      if (newRight <= 5 && newRight - newLeft >= 3) {
-        // aralarında min 2 boşluk
-        currentPiece.x++;
-        _mirrorPiece!.x++;
-      }
-    } else {
-      if (_valid(currentPiece.shape, currentPiece.x + 1, currentPiece.y)) {
-        currentPiece.x++;
+    if (_valid(currentPiece.shape, currentPiece.x + 1, currentPiece.y)) {
+      currentPiece.x++;
+      if (_doubleVisionActive && _fakePiece != null && !_fakeDissolving) {
+        final newFakeX = _fakePiece!.x + 1;
+        final fakeW = _fakePiece!.shape.isEmpty ? 1 : _fakePiece!.shape[0].length;
+        if (newFakeX + fakeW <= kCols) _fakePiece!.x = newFakeX;
       }
     }
   }
@@ -826,27 +813,13 @@ class TetrisGame extends FlameGame
       } else {
         _lockPiece();
       }
-    } else if (_mirrorActive && _mirrorPiece != null) {
-      final mainOk = _validLeft(
-        currentPiece.shape,
-        currentPiece.x,
-        currentPiece.y + 1,
-      );
-      final mirOk = _validRight(
-        _mirrorPiece!.shape,
-        _mirrorPiece!.x,
-        _mirrorPiece!.y + 1,
-      );
-      if (mainOk && mirOk) {
-        currentPiece.y++;
-        _mirrorPiece!.y++;
-      } else {
-        _lockPiece();
-      }
     } else {
       // Normal yerçekimi — aşağı tuşu = aşağıya doğru
       if (_valid(currentPiece.shape, currentPiece.x, currentPiece.y + 1)) {
         currentPiece.y++;
+        if (_doubleVisionActive && _fakePiece != null && !_fakeDissolving) {
+          if (_fakePiece!.y < kRows - _fakePiece!.height) _fakePiece!.y++;
+        }
       } else {
         _lockPiece();
       }
@@ -867,28 +840,21 @@ class TetrisGame extends FlameGame
       [-1, -1],
       [1, -1],
     ];
-    if (_mirrorActive && _mirrorPiece != null) {
-      final mirRot = _mirrorPiece!.rotated();
-      for (final k in kicks) {
-        // Sol parça kick, sağ parça x'i ters kick alır (simetrik)
-        if (_validLeft(rot.shape, rot.x + k[0], rot.y + k[1]) &&
-            _validRight(mirRot.shape, mirRot.x - k[0], mirRot.y + k[1])) {
-          currentPiece = rot;
-          currentPiece.x += k[0];
-          currentPiece.y += k[1];
-          _mirrorPiece = mirRot;
-          _mirrorPiece!.x -= k[0];
-          _mirrorPiece!.y += k[1];
-          return;
-        }
-      }
-      return;
-    }
     for (final k in kicks) {
       if (_valid(rot.shape, rot.x + k[0], rot.y + k[1])) {
         currentPiece = rot;
         currentPiece.x += k[0];
         currentPiece.y += k[1];
+        // Sahte parçayı da döndür
+        if (_doubleVisionActive && _fakePiece != null && !_fakeDissolving) {
+          final fakeRot = _fakePiece!.rotated();
+          fakeRot.x += k[0];
+          fakeRot.y += k[1];
+          final fakeW = fakeRot.shape.isEmpty ? 1 : fakeRot.shape[0].length;
+          fakeRot.x = fakeRot.x.clamp(0, kCols - fakeW);
+          fakeRot.y = fakeRot.y.clamp(0, kRows - fakeRot.height);
+          _fakePiece = fakeRot;
+        }
         return;
       }
     }
@@ -901,24 +867,13 @@ class TetrisGame extends FlameGame
       while (_valid(currentPiece.shape, currentPiece.x, currentPiece.y - 1)) {
         currentPiece.y--;
       }
-    } else if (_mirrorActive && _mirrorPiece != null) {
-      while (_validLeft(
-            currentPiece.shape,
-            currentPiece.x,
-            currentPiece.y + 1,
-          ) &&
-          _validRight(
-            _mirrorPiece!.shape,
-            _mirrorPiece!.x,
-            _mirrorPiece!.y + 1,
-          )) {
-        currentPiece.y++;
-        _mirrorPiece!.y++;
-      }
     } else {
       // Normal yerçekimi — tabana kadar git (y arttır)
       while (_valid(currentPiece.shape, currentPiece.x, currentPiece.y + 1)) {
         currentPiece.y++;
+        if (_doubleVisionActive && _fakePiece != null && !_fakeDissolving) {
+          if (_fakePiece!.y < kRows - _fakePiece!.height) _fakePiece!.y++;
+        }
       }
     }
     _lockPiece();
@@ -933,26 +888,18 @@ class TetrisGame extends FlameGame
             _endGame();
             return;
           }
+          // Sınır dışı koruması — crash yerine graceful skip
+          if (br >= kRows || bc < 0 || bc >= kCols) continue;
           board.set(br, bc, currentPiece.shape[r][c]);
           if (currentPiece.frozen) frozenSet['$br,$bc'] = 3;
         }
       }
     }
 
-    // Ayna parçasını da board'a yaz
-    if (_mirrorActive && _mirrorPiece != null) {
-      final mp = _mirrorPiece!;
-      for (int r = 0; r < mp.shape.length; r++) {
-        for (int c = 0; c < mp.shape[r].length; c++) {
-          if (mp.shape[r][c] != 0) {
-            final br = mp.y + r, bc = mp.x + c;
-            if (br >= 0 && br < kRows && bc >= 0 && bc < kCols) {
-              board.set(br, bc, mp.shape[r][c]);
-              if (mp.frozen) frozenSet['$br,$bc'] = 3;
-            }
-          }
-        }
-      }
+    // Çift Görme: sahte parçayı dağıt (board'a YAZMA, sadece görsel)
+    if (_doubleVisionActive && _fakePiece != null) {
+      _fakeDissolving = true;
+      _fakeDissolveTimer = 0.0;
     }
 
     // Bounce efekti
@@ -1144,27 +1091,52 @@ class TetrisGame extends FlameGame
     if (_gravityReversed) {
       currentPiece.y = kRows - currentPiece.shape.length;
     }
-    if (_mirrorActive) _spawnMirrorPiece();
     nextPiece = nextQueue.removeAt(0);
     nextQueue.add(
       PieceGenerator.generate(score, moveCount, season: activeSeason),
     );
     pieceVisualY = currentPiece.y.toDouble();
 
-    final spawnInvalid =
-        !_valid(currentPiece.shape, currentPiece.x, currentPiece.y) ||
-        (_mirrorActive &&
-            _mirrorPiece != null &&
-            !_validRight(
-              _mirrorPiece!.shape,
-              _mirrorPiece!.x,
-              _mirrorPiece!.y,
-            ));
-    if (spawnInvalid) {
+    if (!_valid(currentPiece.shape, currentPiece.x, currentPiece.y)) {
       _endGame();
       return;
     }
     _updateLevel();
+  }
+
+  void _checkEvolution() {
+    const thresholds = {
+      1000000: (2, 4),
+      5000000: (4, 8),
+      10000000: (8, 16),
+      20000000: (16, 32),
+      30000000: (32, 64),
+      50000000: (64, 128),
+    };
+    for (final entry in thresholds.entries) {
+      if (score >= entry.key && !_evolvedThresholds.contains(entry.key)) {
+        _evolvedThresholds.add(entry.key);
+        _startEvolution(entry.value.$1, entry.value.$2);
+        return;
+      }
+    }
+  }
+
+  void _startEvolution(int from, int to) {
+    _evolutionFrom = from;
+    _evolutionTo = to;
+    _evolutionTimer = 0.0;
+    _evolutionBlastDone = false;
+    _evolutionFlash = 0.0;
+    _evolutionTargets = [];
+    for (int r = 0; r < kRows; r++) {
+      for (int c = 0; c < kCols; c++) {
+        if (board.get(r, c) == from) {
+          _evolutionTargets.add((r, c));
+        }
+      }
+    }
+    _evolutionActive = true;
   }
 
   void _pickNewMultiplier() {
@@ -1261,10 +1233,17 @@ class TetrisGame extends FlameGame
       1048576: 45.0,
       2097152: 51.0,
       4194304: 57.0,
+      8388608: 63.0,
+      16777216: 69.0,
+      33554432: 75.0,
+      67108864: 81.0,
+      134217728: 87.0,
+      268435456: 93.0,
+      536870912: 99.0,
     };
     if (table.containsKey(value)) return table[value]!;
-    if (value > 4194304) {
-      return 57.0 + (math.log(value / 4194304) / math.log(2)) * 6.0;
+    if (value > 536870912) {
+      return 99.0 + (math.log(value / 536870912) / math.log(2)) * 6.0;
     }
     return 0.5;
   }
@@ -1305,7 +1284,7 @@ class TetrisGame extends FlameGame
   }
 
   void _triggerMaxExplosion() {
-    if (_maxExplosion != null) return; // zaten çalışıyorsa çağırma
+    if (_maxExplosion != null || _evolutionActive) return;
     SoundManager.pauseMusic();
     SoundManager.meterExplosion();
     // Mevcut mevsimi hemen bitir
@@ -1335,9 +1314,9 @@ class TetrisGame extends FlameGame
     seasonTurnsLeft = 10;
     _seasonBombTimer = 2.0;
 
-    if (activeSeason == 'mirror') {
-      _mirrorActive = true;
-      _spawnMirrorPiece();
+    if (activeSeason == 'double_vision') {
+      _doubleVisionActive = true;
+      _spawnFakePiece();
     }
     if (activeSeason == 'gravity') {
       _gravityReversed = true;
@@ -1376,14 +1355,22 @@ class TetrisGame extends FlameGame
 
   Future<void> _endSeason() async {
     final season = activeSeason;
-    if (season == 'mirror') {
-      _mirrorActive = false;
-      _mirrorPiece = null;
+    if (season == 'double_vision') {
+      _doubleVisionActive = false;
+      _fakePiece = null;
+      _fakeDissolving = false;
     }
 
     // BGM'i normale döndür, mevsim müziğini durdur
     SoundManager.clearSeasonMusicFlag();
     await SoundManager.stopSeasonMusic();
+
+    // Güvenlik kontrolü: await sırasında yeni bir mevsim başladıysa
+    // bu eski continuation'ın temizleme işlemlerini atla.
+    // Aksi halde activeSeason yanlışlıkla null'a çekilir ve
+    // gravity gibi mevsimlerde board ters çevrilir.
+    if (activeSeason != season) return;
+
     // Eğer 32k animasyonu devam ediyorsa oyun müziğini başlatma
     if (_maxExplosion == null) {
       SoundManager.resumeMusic();
@@ -1458,14 +1445,7 @@ class TetrisGame extends FlameGame
     }
     if (newLevel != level) {
       level = newLevel;
-      final baseSpeed = 540.0, fastThreshold = 350.0;
-      final levelsToFast = ((baseSpeed - fastThreshold) / 50).ceil();
-      if (level <= levelsToFast + 1) {
-        speed = baseSpeed - (level - 1) * 50;
-      } else {
-        speed = fastThreshold - (level - levelsToFast - 1) * 20;
-      }
-      speed = speed.clamp(100, 540);
+      speed = (450.0 - (level - 1) * 10).clamp(100, 450);
       SoundManager.level();
       particles.spawnConfetti(kCols * kCell / 2, 0);
       screenShake = 0.3;
@@ -1504,7 +1484,7 @@ class TetrisGame extends FlameGame
     }
 
     // Bomba mevsimi — her 2-3 saniyede rastgele bomba
-    if (activeSeason == 'bomb' && gameActive && !paused) {
+    if (activeSeason == 'bomb' && gameActive && !paused && !_evolutionActive) {
       _seasonBombTimer -= dt;
       if (_seasonBombTimer <= 0) {
         _seasonBombTimer = 1.5 + _rng.nextDouble() * 1.5;
@@ -1513,7 +1493,7 @@ class TetrisGame extends FlameGame
     }
 
     // Değiş tokuş (KAOS) mevsimi
-    if (activeSeason == 'chaos' && gameActive && !paused) {
+    if (activeSeason == 'chaos' && gameActive && !paused && !_evolutionActive) {
       _seasonBombTimer -= dt;
       if (_seasonBombTimer <= 0) {
         _seasonBombTimer = 1.5 + _rng.nextDouble() * 1.5;
@@ -1606,7 +1586,76 @@ class TetrisGame extends FlameGame
       if (displayScore > score) displayScore = score.toDouble();
     }
 
-    if (!gameActive || paused || _maxExplosion != null) return;
+    // Çift Görme: sahte parça dağılma animasyonu
+    if (_fakeDissolving) {
+      _fakeDissolveTimer += dt;
+      if (_fakeDissolveTimer >= 0.4) {
+        _fakePiece = null;
+        _fakeDissolving = false;
+        if (_doubleVisionActive && gameActive) _spawnFakePiece();
+      }
+    }
+
+    // Evrim kontrolü ve animasyonu
+    if (!_evolutionActive && gameActive && !paused && _maxExplosion == null) {
+      _checkEvolution();
+    }
+    if (_evolutionActive) {
+      _evolutionTimer += dt;
+      final t = _evolutionTimer;
+
+      // Aşama 2 — Deprem (0.5–1.4s)
+      if (t >= 0.5 && t < 1.4) {
+        screenShake = 0.8;
+      }
+
+      // Aşama 3 — Patlama (tek seferlik, 1.4s)
+      if (t >= 1.4 && !_evolutionBlastDone) {
+        _evolutionBlastDone = true;
+        SoundManager.megaBomb();
+        _evolutionFlash = 0.4;
+        screenShake = 1.2;
+        for (final target in _evolutionTargets) {
+          final r = target.$1, c = target.$2;
+          if (board.get(r, c) == _evolutionFrom) {
+            board.set(r, c, _evolutionTo);
+            particles.spawnExplosion(
+              boardX + c * kCell + kCell / 2,
+              boardY + r * kCell + kCell / 2,
+            );
+          }
+        }
+        if (_gravityReversed) {
+          board.applyReverseGravity(frozenSet);
+        } else {
+          board.applyGravity(frozenSet);
+        }
+        final evoEvents = board.resolveMerges(
+          frozenSet,
+          frozenCols,
+          multiplierLines,
+          reverseGravity: _gravityReversed,
+        );
+        for (final e in evoEvents) {
+          _addScore(e.baseScore);
+        }
+      }
+
+      // Flash sönme
+      if (_evolutionFlash > 0) {
+        _evolutionFlash = (_evolutionFlash - dt * 2.0).clamp(0.0, 0.4);
+      }
+
+      // Animasyon sonu (2.7s)
+      if (t >= 2.7) {
+        _evolutionActive = false;
+        _evolutionTimer = 0.0;
+        _evolutionTargets = [];
+      }
+    }
+
+    if (!gameActive || paused || _maxExplosion != null || _evolutionActive)
+      return;
 
     final targetY = currentPiece.y.toDouble();
     if (pieceVisualY < targetY) {
@@ -1630,29 +1679,11 @@ class TetrisGame extends FlameGame
         }
       } else {
         // Normal yerçekimi — aşağıya doğru hareket
-        if (_mirrorActive && _mirrorPiece != null) {
-          final mainOk = _validLeft(
-            currentPiece.shape,
-            currentPiece.x,
-            currentPiece.y + 1,
-          );
-          final mirOk = _validRight(
-            _mirrorPiece!.shape,
-            _mirrorPiece!.x,
-            _mirrorPiece!.y + 1,
-          );
-          if (mainOk && mirOk) {
-            currentPiece.y++;
-            _mirrorPiece!.y++;
-          } else {
-            _lockPiece();
-          }
-        } else if (_valid(
-          currentPiece.shape,
-          currentPiece.x,
-          currentPiece.y + 1,
-        )) {
+        if (_valid(currentPiece.shape, currentPiece.x, currentPiece.y + 1)) {
           currentPiece.y++;
+          if (_doubleVisionActive && _fakePiece != null && !_fakeDissolving) {
+            if (_fakePiece!.y < kRows - _fakePiece!.height) _fakePiece!.y++;
+          }
         } else {
           _lockPiece();
         }
@@ -1683,12 +1714,12 @@ class TetrisGame extends FlameGame
     _drawMultiplierLines(canvas);
     _drawBoard(canvas);
     _drawGhost(canvas);
-    _drawMirrorGhost(canvas);
+    _drawFakePiece(canvas);
     _drawPiece(canvas);
-    _drawMirrorPiece(canvas);
     particles.render(canvas, boardX, boardY, screenW: size.x, screenH: size.y);
     _drawUI(canvas);
     _drawOverlays(canvas);
+    _drawEvolutionOverlay(canvas);
     _maxExplosion?.render(canvas, size.x, size.y);
 
     canvas.restore();
@@ -2284,6 +2315,20 @@ class TetrisGame extends FlameGame
       imgKey = '2097152';
     } else if (val == 4194304) {
       imgKey = '4194304';
+    } else if (val == 8388608) {
+      imgKey = '8388608';
+    } else if (val == 16777216) {
+      imgKey = '16777216';
+    } else if (val == 33554432) {
+      imgKey = '33554432';
+    } else if (val == 67108864) {
+      imgKey = '67108864';
+    } else if (val == 134217728) {
+      imgKey = '134217728';
+    } else if (val == 268435456) {
+      imgKey = '268435456';
+    } else if (val == 536870912) {
+      imgKey = '536870912';
     } else if (val >= 16384) {
       imgKey = '16384';
     } else if (val == kJoker) {
@@ -2555,45 +2600,52 @@ class TetrisGame extends FlameGame
     }
   }
 
-  void _drawMirrorGhost(Canvas canvas) {
-    if (!_mirrorActive || _mirrorPiece == null || !gameActive) return;
-    final mp = _mirrorPiece!;
-    int gy = mp.y;
-    while (_validRight(mp.shape, mp.x, gy + 1)) {
-      gy++;
-    }
-    if (gy == mp.y) return;
-    for (int r = 0; r < mp.shape.length; r++) {
-      for (int c = 0; c < mp.shape[r].length; c++) {
-        final v = mp.shape[r][c];
-        if (v != 0) {
-          _drawTile(
-            canvas,
-            boardX + (mp.x + c) * kCell,
-            boardY + (gy + r) * kCell,
-            v,
-            0.18,
-            ghost: true,
+  void _drawFakePiece(Canvas canvas) {
+    if (!_doubleVisionActive || _fakePiece == null || !gameActive) return;
+    final fp = _fakePiece!;
+    final dissolveRatio = _fakeDissolving
+        ? (_fakeDissolveTimer / 0.4).clamp(0.0, 1.0)
+        : 0.0;
+    final alpha = (1.0 - dissolveRatio).clamp(0.0, 1.0);
+
+    for (int r = 0; r < fp.shape.length; r++) {
+      for (int c = 0; c < fp.shape[r].length; c++) {
+        final v = fp.shape[r][c];
+        if (v == 0) continue;
+
+        // Dağılma efekti: her hücre rastgele küçük offset
+        final ox = _fakeDissolving ? (_rng.nextDouble() - 0.5) * 10 * dissolveRatio : 0.0;
+        final oy = _fakeDissolving ? (_rng.nextDouble() - 0.5) * 10 * dissolveRatio : 0.0;
+        final px = boardX + (fp.x + c) * kCell + ox;
+        final py = boardY + (fp.y + r) * kCell + oy;
+
+        // Ana blok çizimi (aynı görünüm, sadece alpha değişir)
+        _drawTile(canvas, px, py, v, alpha);
+
+        // Dağılırken kırmızıya dönen overlay
+        if (_fakeDissolving && dissolveRatio > 0) {
+          const pad = 2.0;
+          canvas.drawRRect(
+            RRect.fromRectAndRadius(
+              Rect.fromLTWH(px + pad, py + pad, kCell - pad * 2, kCell - pad * 2),
+              const Radius.circular(14),
+            ),
+            Paint()..color = Colors.red.withValues(alpha: dissolveRatio * 0.55 * alpha),
           );
         }
       }
     }
   }
 
-  void _drawMirrorPiece(Canvas canvas) {
-    if (!_mirrorActive || _mirrorPiece == null || !gameActive) return;
-    final mp = _mirrorPiece!;
-    for (int r = 0; r < mp.shape.length; r++) {
-      for (int c = 0; c < mp.shape[r].length; c++) {
-        final v = mp.shape[r][c];
-        if (v != 0) {
-          final px = boardX + (mp.x + c) * kCell;
-          final py = boardY + (mp.y + r) * kCell;
-          _drawTile(canvas, px, py, v, 1.0);
-          if (mp.frozen) _drawFrozenOverlayAt(canvas, px, py);
-        }
-      }
+  String _formatScore(int score) {
+    if (score >= 1000000000) {
+      return '${(score / 1000000000).toStringAsFixed(2)}B';
+    } else if (score >= 1000000) {
+      return '${(score / 1000000).toStringAsFixed(2)}M';
+    } else if (score >= 1000) {
+      return '${(score / 1000).toStringAsFixed(1)}K';
     }
+    return score.toString();
   }
 
   void _drawUI(Canvas canvas) {
@@ -2610,7 +2662,7 @@ class TetrisGame extends FlameGame
 
     // === SKOR PANELİ ===
     if (_scoreBoxImage != null) {
-      final scoreStr = displayScore.toInt().toString();
+      final scoreStr = _formatScore(displayScore.toInt());
       const scoreFontSize = 16.0;
       canvas.drawImageRect(
         _scoreBoxImage!,
@@ -2636,7 +2688,7 @@ class TetrisGame extends FlameGame
     }
 
     if (_bestScoreBoxImage != null) {
-      final bestStr = best.toString();
+      final bestStr = _formatScore(best);
       const bestFontSize = 16.0;
       final bsh =
           ssBw * (_bestScoreBoxImage!.height / _bestScoreBoxImage!.width);
@@ -2897,6 +2949,145 @@ class TetrisGame extends FlameGame
         ..style = PaintingStyle.stroke
         ..strokeWidth = 1,
     );
+  }
+
+  void _drawEvolutionOverlay(Canvas canvas) {
+    if (!_evolutionActive) return;
+    final t = _evolutionTimer;
+    final sw = size.x, sh = size.y;
+    final cx = sw / 2, cy = sh / 2;
+
+    // Siyah overlay — fade in (0→0.5s), sabit, fade out (2.4→2.7s)
+    final double overlayAlpha;
+    if (t < 0.5) {
+      overlayAlpha = (t / 0.5) * 0.65;
+    } else if (t >= 2.4) {
+      overlayAlpha = ((2.7 - t) / 0.3).clamp(0.0, 1.0) * 0.65;
+    } else {
+      overlayAlpha = 0.65;
+    }
+    canvas.drawRect(
+      Rect.fromLTWH(0, 0, sw, sh),
+      Paint()..color = Colors.black.withValues(alpha: overlayAlpha),
+    );
+
+    // Kırmızı flash (patlama anı)
+    if (_evolutionFlash > 0) {
+      canvas.drawRect(
+        Rect.fromLTWH(0, 0, sw, sh),
+        Paint()
+          ..color = const Color(0xFFFF1111).withValues(alpha: _evolutionFlash),
+      );
+    }
+
+    // Nabzeden hedef bloklar (patlama öncesi, 0–1.4s)
+    if (t < 1.4) {
+      final pulseFreq = t >= 0.5 ? 14.0 : 7.0; // depremde daha hızlı
+      final pulse = (math.sin(animTime * pulseFreq) * 0.5 + 0.5);
+      final highlightAlpha = ((0.35 + pulse * 0.65) * (overlayAlpha / 0.65))
+          .clamp(0.0, 1.0);
+      for (final target in _evolutionTargets) {
+        final r = target.$1, c = target.$2;
+        if (board.get(r, c) == _evolutionFrom) {
+          canvas.drawRRect(
+            RRect.fromRectAndRadius(
+              Rect.fromLTWH(
+                boardX + c * kCell + 2,
+                boardY + r * kCell + 2,
+                kCell - 4,
+                kCell - 4,
+              ),
+              const Radius.circular(6),
+            ),
+            Paint()
+              ..color = const Color(
+                0xFFFF3333,
+              ).withValues(alpha: highlightAlpha),
+          );
+        }
+      }
+    }
+
+    // Ana metin (0→2.4s)
+    if (t < 2.4) {
+      final textAlpha = (t < 0.3 ? t / 0.3 : 1.0).clamp(0.0, 1.0);
+
+      // Evrilen değerleri kısa string'e çevir
+      String valStr(int v) => v >= 1000 ? '${v ~/ 1000}K' : '$v';
+      final fromStr = valStr(_evolutionFrom);
+      final toStr = valStr(_evolutionTo);
+      final evolvingText = L10n.t('evolving')
+          .replaceAll('{from}', _evolutionFrom.toString())
+          .replaceAll('{to}', _evolutionTo.toString());
+
+      // Glow çemberi
+      canvas.drawCircle(
+        Offset(cx, cy - 18),
+        85,
+        Paint()
+          ..color = const Color(0xFFFF2222).withValues(alpha: textAlpha * 0.18)
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 40),
+      );
+
+      // Üst satır: büyük değer göstergesi
+      _drawEvolutionValueText(
+        canvas,
+        '$fromStr → $toStr',
+        cx,
+        cy - 22,
+        textAlpha,
+      );
+
+      // Alt satır: localized evrim metni
+      _drawTextCentered(
+        canvas,
+        evolvingText,
+        cx,
+        cy + 28,
+        20,
+        Colors.white.withValues(alpha: textAlpha * 0.92),
+        bold: true,
+      );
+    }
+  }
+
+  void _drawEvolutionValueText(
+    Canvas canvas,
+    String text,
+    double cx,
+    double cy,
+    double alpha,
+  ) {
+    final shadows = <Shadow>[
+      Shadow(
+        color: Colors.black.withValues(alpha: 0.9),
+        blurRadius: 6,
+        offset: const Offset(0, 3),
+      ),
+      Shadow(
+        color: const Color(0xFFFF0000).withValues(alpha: alpha * 0.9),
+        blurRadius: 20,
+      ),
+      Shadow(
+        color: const Color(0xFFFF0000).withValues(alpha: alpha * 0.5),
+        blurRadius: 40,
+      ),
+    ];
+    final tp = TextPainter(
+      text: TextSpan(
+        text: text,
+        style: GoogleFonts.poppins(
+          textStyle: TextStyle(
+            fontSize: 40,
+            fontWeight: FontWeight.w900,
+            color: const Color(0xFFFF4444).withValues(alpha: alpha),
+            shadows: shadows,
+          ),
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    tp.paint(canvas, Offset(cx - tp.width / 2, cy - tp.height / 2));
   }
 
   void _drawTextCentered(
@@ -3236,7 +3427,8 @@ class TetrisGame extends FlameGame
         Paint(),
       );
 
-      final scoreStr = '${L10n.t('game_over_score')}: ${displayScore.toInt()}';
+      final scoreStr =
+          '${L10n.t('game_over_score')}: ${_formatScore(displayScore.toInt())}';
       final extraChars = (scoreStr.length - 11).clamp(0, 20);
       final baseScoreH = gh * 0.12;
       final scoreFontScale = 1.0 - extraChars * 0.05;
@@ -3258,7 +3450,7 @@ class TetrisGame extends FlameGame
       );
       _drawFittedText(
         canvas,
-        '$best',
+        _formatScore(best),
         bestRect,
         const Color(0xFFFFD700),
         bold: true,

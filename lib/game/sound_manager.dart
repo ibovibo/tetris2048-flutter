@@ -125,7 +125,7 @@ class SoundManager {
       'bomb': 'bombamevsim.mp3',
       'ice': 'kismevsim.mp3',
       'mystery': 'gizemmevsim.mp3',
-      'mirror': 'hizmevsim.mp3',
+      'double_vision': 'hizmevsim.mp3',
       'gravity': 'carpanmevsim.mp3',
       'chaos': 'degistokusmevsim.mp3',
     };

@@ -12,7 +12,7 @@ class SeasonInfo {
 
 const List<SeasonInfo> kSeasons = [
   SeasonInfo(key:'bomb',       emoji:'🔥', name:'BOMBA',       color:Color(0xFFFF4400)),
-  SeasonInfo(key:'mirror',     emoji:'🪞', name:'AYNA',        color:Color(0xFF44CCFF)),
+  SeasonInfo(key:'double_vision', emoji:'👁', name:'ÇİFT GÖRME', color:Color(0xFFFF88FF)),
   SeasonInfo(key:'ice',        emoji:'❄',  name:'BUZ',         color:Color(0xFF88EEFF)),
   SeasonInfo(key:'gravity',    emoji:'🔄', name:'YERÇEKİMİ',   color:Color(0xFF8844FF)),
   SeasonInfo(key:'chaos',      emoji:'💥', name:'KAOS',        color:Color(0xFFFF4488)),
@@ -344,7 +344,7 @@ class MaxExplosion {
       case 'bomb':    _renderAnnounceBomb(canvas, sw, sh, a);
       case 'ice':     _renderAnnounceIce(canvas, sw, sh, a);
       case 'gravity': _renderAnnounceGravity(canvas, sw, sh, a);
-      case 'mirror':  _renderAnnounceMirror(canvas, sw, sh, a);
+      case 'double_vision': _renderAnnounceDoubleVision(canvas, sw, sh, a);
       case 'chaos':   _renderAnnounceChaos(canvas, sw, sh, a);
       case 'mystery': _renderAnnounceMystery(canvas, sw, sh, a);
       default:        _renderAnnounceDefault(canvas, sw, sh, a);
@@ -485,42 +485,42 @@ class MaxExplosion {
       14, Colors.white.withValues(alpha:a*0.8), letterSpacing:8);
   }
 
-  void _renderAnnounceMirror(Canvas canvas, double sw, double sh, double a) {
+  void _renderAnnounceDoubleVision(Canvas canvas, double sw, double sh, double a) {
     final cx = sw/2, cy = sh/2;
+    final t = _announceTime;
 
     canvas.drawRect(Rect.fromLTWH(0,0,sw,sh),
-      Paint()..color=const Color(0xFF0A0A0F).withValues(alpha:a*0.95));
+      Paint()..color=const Color(0xFF0A000F).withValues(alpha:a*0.95));
 
-    canvas.drawRect(Rect.fromLTWH(cx-1.5, 0, 3, sh),
-      Paint()..color=Colors.white.withValues(alpha:a*0.15));
-    canvas.drawRect(Rect.fromLTWH(cx-6, 0, 12, sh),
-      Paint()..color=Colors.white.withValues(alpha:a*0.05)
-             ..maskFilter=const MaskFilter.blur(BlurStyle.normal,12));
-
-    canvas.drawCircle(Offset(cx,cy), 160,
-      Paint()..color=const Color(0xFFFFCC00).withValues(alpha:a*0.12)
-             ..maskFilter=const MaskFilter.blur(BlurStyle.normal,50));
-
-    final goldPaint = Paint()
-      ..color=const Color(0xFFFFCC00).withValues(alpha:a*0.7)
-      ..style=PaintingStyle.stroke..strokeWidth=1.5;
-    for (final yOff in [-100.0, -30.0, 40.0, 110.0]) {
-      const size = 18.0;
-      final ly = cy + yOff;
-      for (final lx in [cx-70, cx+70]) {
-        final path = Path()
-          ..moveTo(lx, ly-size)
-          ..lineTo(lx+size*0.6, ly)
-          ..lineTo(lx, ly+size)
-          ..lineTo(lx-size*0.6, ly)
-          ..close();
-        canvas.drawPath(path, goldPaint);
-      }
+    // Çift göz arka ışıması — sol ve sağ
+    for (final sign in [-1.0, 1.0]) {
+      final ex = cx + sign * 60;
+      canvas.drawCircle(Offset(ex,cy-36), 80,
+        Paint()..color=const Color(0xFFFF44FF).withValues(alpha:a*0.14)
+               ..maskFilter=const MaskFilter.blur(BlurStyle.normal,40));
     }
 
-    _txt(canvas, '🪞', cx, cy-40, 72, Colors.white.withValues(alpha:a));
-    _txt(canvas, L10n.t('season_mirror'), cx, cy+50,
-      26, const Color(0xFFFFCC00).withValues(alpha:a), bold:true, glow:const Color(0xFFFFAA00));
+    // Titreşen / çift-görme tarama çizgileri
+    for (int i = 0; i < 7; i++) {
+      final lineY = cy - 90 + i * 32.0;
+      final hShift = math.sin(t * 6.0 + i * 0.8) * 4.0;
+      canvas.drawLine(
+        Offset(cx - 100 + hShift, lineY),
+        Offset(cx + 100 + hShift, lineY),
+        Paint()..color = const Color(0xFFFF88FF).withValues(alpha: a * 0.18)
+               ..strokeWidth = 1.2,
+      );
+    }
+
+    // Gölge/ikiz göz ikonu — hafif kaymış
+    final shift = math.sin(t * 4.0) * 5.0;
+    _txt(canvas, '👁', cx - shift, cy-42, 68,
+      const Color(0xFFFF44FF).withValues(alpha:a*0.55));
+    _txt(canvas, '👁', cx + shift, cy-42, 68,
+      Colors.white.withValues(alpha:a));
+
+    _txt(canvas, L10n.t('season_double_vision'), cx, cy+50,
+      24, const Color(0xFFFF88FF).withValues(alpha:a), bold:true, glow:const Color(0xFFDD00DD));
     _txt(canvas, L10n.t('season_starting'), cx, cy+88,
       14, Colors.white.withValues(alpha:a*0.8), letterSpacing:8);
   }

@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'constants.dart';
 
@@ -114,7 +115,7 @@ class Board {
           final v = cells[r][c];
           if (v > 0 &&
               v == cells[r + 1][c] &&
-              v < 4194304 &&
+              v < 536870912 &&
               !frozenCols.containsKey(c) &&
               !frozenSet.containsKey('$r,$c') &&
               !frozenSet.containsKey('${r + 1},$c') &&
@@ -125,18 +126,16 @@ class Board {
             cells[r][c] = 0;
             frozenSet.remove('${r + 1},$c');
             frozenSet.remove('$r,$c');
-            final mult = _getMultiplier(r, c, multiplierLines);
-            final bigBonus = newVal >= 4096
-                ? newVal
-                : (newVal >= 2048 ? newVal ~/ 2 : 0);
+            final logBase = log(newVal) / log(2);
+            final scoreVal = (newVal * (4.0 / logBase)).round();
             events.add(
               MergeEvent(
                 cx: c * kCell + kCell / 2,
                 cy: (r + 1) * kCell + kCell / 2,
                 val: newVal,
-                baseScore: newVal * mult + bigBonus,
-                mult: mult,
-                bigBonus: bigBonus,
+                baseScore: scoreVal,
+                mult: 1,
+                bigBonus: 0,
               ),
             );
             anyMerged = true;
@@ -150,7 +149,7 @@ class Board {
           final v = cells[r][c];
           if (v > 0 &&
               v == cells[r][c + 1] &&
-              v < 4194304 &&
+              v < 536870912 &&
               !frozenCols.containsKey(c) &&
               !frozenCols.containsKey(c + 1) &&
               !frozenSet.containsKey('$r,$c') &&
@@ -161,18 +160,16 @@ class Board {
             cells[r][c] = 0;
             frozenSet.remove('$r,${c + 1}');
             frozenSet.remove('$r,$c');
-            final mult = _getMultiplier(r, c, multiplierLines);
-            final bigBonus = newVal >= 4096
-                ? newVal
-                : (newVal >= 2048 ? newVal ~/ 2 : 0);
+            final logBase = log(newVal) / log(2);
+            final scoreVal = (newVal * (4.0 / logBase)).round();
             events.add(
               MergeEvent(
                 cx: (c + 1) * kCell + kCell / 2,
                 cy: r * kCell + kCell / 2,
                 val: newVal,
-                baseScore: newVal * mult + bigBonus,
-                mult: mult,
-                bigBonus: bigBonus,
+                baseScore: scoreVal,
+                mult: 1,
+                bigBonus: 0,
               ),
             );
             anyMerged = true;

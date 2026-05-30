@@ -178,12 +178,12 @@ class _MenuScreenState extends State<MenuScreen>
                             ),
                             useFittedBox: true,
                             lockTextBounds: true,
-                            strokeColor: const Color(0xFF315A03),
+                            strokeColor: const Color(0xFF4B7A10),
                             strokeWidth: h * 0.043,
                             style: TextStyle(
                               fontSize: h * 0.368,
                               fontWeight: FontWeight.w900,
-                              color: const Color(0xFFAFE441),
+                              color: const Color(0xFFDDFB6A),
                               letterSpacing: h * 0.03,
                             ),
                           ),
@@ -218,7 +218,11 @@ class _MenuScreenState extends State<MenuScreen>
                     child: LayoutBuilder(
                       builder: (context, constraints) {
                         final settingsText = L10n.t('settings');
-                        final fontScaleValue = settingsText.length > 8 ? 0.75 : settingsText.length > 7 ? 0.85 : 1.0;
+                        final fontScaleValue = settingsText.length > 8
+                            ? 0.75
+                            : settingsText.length > 7
+                            ? 0.85
+                            : 1.0;
                         final h = constraints.maxHeight * fontScaleValue;
                         return Transform.translate(
                           offset: Offset(0, -constraints.maxHeight * 0.03),

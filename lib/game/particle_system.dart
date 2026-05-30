@@ -817,7 +817,7 @@ class SeasonBgSystem {
       _initGravityDrops();
     }
     if (s == 'chaos') _initShuffleBg();
-    if (s == 'mirror') _initMirrorBg();
+    if (s == 'double_vision') _initDoubleVisionBg();
     if (s == 'mystery') _initShuffleBg(); // soru isaretleri icin sembol listesini override et
 
     if (s == 'mystery') {
@@ -914,20 +914,18 @@ class SeasonBgSystem {
     }
   }
 
-  void _initMirrorBg() {
+  void _initDoubleVisionBg() {
     final colors = [
-      const Color(0xFF44CCFF), const Color(0xFFAADDFF),
-      const Color(0xFFCCEEFF), const Color(0xFFFFFFFF),
-      const Color(0xFF88EEFF), const Color(0xFF66BBFF),
+      const Color(0xFFFF44FF), const Color(0xFFFF88FF),
+      const Color(0xFFDD00DD), const Color(0xFFFFAAFF),
+      const Color(0xFFFF00CC), const Color(0xFFCC44FF),
     ];
-    for (int i = 0; i < 32; i++) {
-      // Sol ve sağ yarıya simetrik yerleştir (x 0..0.45 arası)
-      final xFrac = 0.05 + _rng.nextDouble() * 0.40;
+    for (int i = 0; i < 30; i++) {
       _bgParticles.add(_BgParticle(
-        x: xFrac,
+        x: _rng.nextDouble(),
         y: _rng.nextDouble(),
-        vx: 0,
-        vy: (_rng.nextDouble() - 0.5) * 0.001,
+        vx: (_rng.nextDouble() - 0.5) * 0.003,
+        vy: (_rng.nextDouble() - 0.5) * 0.003,
         size: 2 + _rng.nextDouble() * 5,
         color: colors[_rng.nextInt(colors.length)],
         phase: _rng.nextDouble() * math.pi * 2,
@@ -957,10 +955,13 @@ class SeasonBgSystem {
       }
     }
 
-    if (season == 'mirror') {
+    if (season == 'double_vision') {
       for (final p in _bgParticles) {
-        p.phase += dt * 2.2;
+        p.phase += dt * 3.0;
+        p.x += p.vx;
         p.y += p.vy;
+        if (p.x < 0) p.x = 1.0;
+        if (p.x > 1) p.x = 0.0;
         if (p.y < 0) p.y = 1.0;
         if (p.y > 1) p.y = 0.0;
       }
@@ -1010,8 +1011,8 @@ class SeasonBgSystem {
       case 'bomb':
         _renderBomb(canvas, boardX, boardY, bw, bh);
         break;
-      case 'mirror':
-        _renderMirror(canvas, boardX, boardY, bw, bh);
+      case 'double_vision':
+        _renderDoubleVision(canvas, boardX, boardY, bw, bh);
         break;
       case 'gravity':
         _renderGravity(canvas, boardX, boardY, bw, bh);
@@ -1188,57 +1189,48 @@ class SeasonBgSystem {
              ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 15));
   }
 
-  void _renderMirror(Canvas canvas, double bx, double by, double bw, double bh) {
-    final pulse = 0.5 + math.sin(_time * 1.8) * 0.3;
-    final lineX = bx + bw / 2;
+  void _renderDoubleVision(Canvas canvas, double bx, double by, double bw, double bh) {
+    final pulse = 0.5 + math.sin(_time * 2.5) * 0.4;
 
-    // Gümüş/mavi zemin tonu
+    // Pembe/mor zemin tonu
     canvas.drawRect(Rect.fromLTWH(bx, by, bw, bh),
-      Paint()..color = const Color(0xFF44CCFF).withValues(alpha: 0.06 * pulse));
+      Paint()..color = const Color(0xFFFF44FF).withValues(alpha: 0.05 * pulse));
 
-    // Ortadaki ayna çizgisi — glow
-    canvas.drawLine(Offset(lineX, by), Offset(lineX, by + bh),
-      Paint()
-        ..color = const Color(0xFFAAEEFF).withValues(alpha: pulse * 0.35)
-        ..strokeWidth = 5
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6));
-    // Parlak ince çizgi üstte
-    canvas.drawLine(Offset(lineX, by), Offset(lineX, by + bh),
-      Paint()
-        ..color = Colors.white.withValues(alpha: pulse * 0.7)
-        ..strokeWidth = 1.2);
-
-    // Simetrik parıltı parçacıkları
-    for (final p in _bgParticles) {
-      final a = (0.15 + math.sin(p.phase) * 0.5).clamp(0.0, 0.7);
-      final cx = bx + p.x * bw;       // sol yarı
-      final cy = by + p.y * bh;
-      final mirrorCx = bx + bw - p.x * bw; // ayna (sağ yarı)
-      final sz = p.size / 2;
-
-      canvas.drawCircle(Offset(cx, cy), sz,
-        Paint()..color = p.color.withValues(alpha: a));
-      canvas.drawCircle(Offset(cx, cy), sz * 2.5,
-        Paint()..color = p.color.withValues(alpha: a * 0.18)
-               ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4));
-      canvas.drawCircle(Offset(mirrorCx, cy), sz,
-        Paint()..color = p.color.withValues(alpha: a));
-      canvas.drawCircle(Offset(mirrorCx, cy), sz * 2.5,
-        Paint()..color = p.color.withValues(alpha: a * 0.18)
-               ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4));
+    // Köşe glowlar — mor/pembe
+    for (final corner in [
+      Offset(bx, by), Offset(bx + bw, by),
+      Offset(bx, by + bh), Offset(bx + bw, by + bh),
+    ]) {
+      canvas.drawCircle(corner, bw * 0.5,
+        Paint()..color = const Color(0xFFFF44FF).withValues(alpha: 0.08 * pulse)
+               ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 20));
     }
 
-    // Sol-sağ köşelerde simetrik parıltı halkaları
-    for (int i = 0; i < 3; i++) {
-      final t = (_time * 0.7 + i * 0.33) % 1.0;
-      final r = t * bw * 0.5;
-      final a = math.sin(t * math.pi) * 0.12;
-      canvas.drawCircle(Offset(bx, by + bh * (0.2 + i * 0.3)), r,
-        Paint()..color = const Color(0xFF44CCFF).withValues(alpha: a)
-               ..style = PaintingStyle.stroke..strokeWidth = 1.5);
-      canvas.drawCircle(Offset(bx + bw, by + bh * (0.2 + i * 0.3)), r,
-        Paint()..color = const Color(0xFF44CCFF).withValues(alpha: a)
-               ..style = PaintingStyle.stroke..strokeWidth = 1.5);
+    // Titreşen yatay çizgiler — tarama efekti
+    final scanShift = math.sin(_time * 8.0) * 3.0;
+    for (int i = 0; i < 10; i++) {
+      final lineY = by + (bh / 9) * i;
+      canvas.drawLine(
+        Offset(bx + scanShift, lineY),
+        Offset(bx + bw + scanShift, lineY),
+        Paint()..color = const Color(0xFFFF88FF).withValues(alpha: 0.07)
+               ..strokeWidth = 0.8,
+      );
+    }
+
+    // Parıltı parçacıkları — iki kopya (çift görme hissi)
+    for (final p in _bgParticles) {
+      final a = (0.1 + math.sin(p.phase) * 0.4).clamp(0.0, 0.6);
+      final cx = bx + p.x * bw;
+      final cy = by + p.y * bh;
+      final sz = p.size / 2;
+      // Ana kopya
+      canvas.drawCircle(Offset(cx, cy), sz,
+        Paint()..color = p.color.withValues(alpha: a));
+      // Hayalet kopya — sağa/sola kaymış
+      final ghostOff = 8.0 * math.sin(_time * 3.0 + p.phase);
+      canvas.drawCircle(Offset(cx + ghostOff, cy), sz * 0.7,
+        Paint()..color = p.color.withValues(alpha: a * 0.4));
     }
   }
 

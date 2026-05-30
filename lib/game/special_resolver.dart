@@ -55,7 +55,7 @@ class SpecialResolver {
             final nr = r + dr, nc = c + dc;
             if (nr < 0 || nr >= kRows || nc < 0 || nc >= kCols) continue;
             if (board.get(nr, nc) != 0) {
-              spawnParticle(nc * kCell + kCell/2, nr * kCell + kCell/2, 32);
+              spawnParticle(nc * kCell + kCell / 2, nr * kCell + kCell / 2, 32);
               board.set(nr, nc, 0);
             }
           }
@@ -81,7 +81,7 @@ class SpecialResolver {
             if (nr < 0 || nr >= kRows || nc < 0 || nc >= kCols) continue;
             totalVal += board.get(nr, nc).clamp(0, 999999);
             if (board.get(nr, nc) != 0) {
-              spawnParticle(nc * kCell + kCell/2, nr * kCell + kCell/2, 64);
+              spawnParticle(nc * kCell + kCell / 2, nr * kCell + kCell / 2, 64);
             }
             board.set(nr, nc, 0);
           }
@@ -157,20 +157,33 @@ class SpecialResolver {
         if (board.get(r, c) != kJoker) continue;
         board.set(r, c, 0);
         int bestVal = 0, bestR = -1, bestC = -1;
-        for (final d in [[-1,0],[1,0],[0,-1],[0,1]]) {
+        for (final d in [
+          [-1, 0],
+          [1, 0],
+          [0, -1],
+          [0, 1],
+        ]) {
           final nr = r + d[0], nc = c + d[1];
           if (nr < 0 || nr >= kRows || nc < 0 || nc >= kCols) continue;
           final v = board.get(nr, nc);
           if (v <= 0 || isObstacle(v)) continue;
           if (claimed.contains('$nr,$nc')) continue;
-          if (v > bestVal) { bestVal = v; bestR = nr; bestC = nc; }
+          if (v > bestVal) {
+            bestVal = v;
+            bestR = nr;
+            bestC = nc;
+          }
         }
         if (bestR >= 0) {
           claimed.add('$bestR,$bestC');
           final newVal = bestVal * 2;
           board.set(bestR, bestC, newVal);
           addScore(bestVal);
-          spawnParticle(bestC * kCell + kCell/2, bestR * kCell + kCell/2, newVal);
+          spawnParticle(
+            bestC * kCell + kCell / 2,
+            bestR * kCell + kCell / 2,
+            newVal,
+          );
           onMeterGain?.call(_getMergeFillStatic(newVal));
           onJokerTriggered?.call();
           showFloat('JOKER!');
@@ -190,7 +203,12 @@ class SpecialResolver {
 
         // Komşulardaki MIN değeri bul (en düşük öncelik)
         int minNeighbor = 999999;
-        for (final d in [[r - 1, c], [r + 1, c], [r, c - 1], [r, c + 1]]) {
+        for (final d in [
+          [r - 1, c],
+          [r + 1, c],
+          [r, c - 1],
+          [r, c + 1],
+        ]) {
           final nr = d[0], nc = d[1];
           if (nr < 0 || nr >= kRows || nc < 0 || nc >= kCols) continue;
           final v = board.get(nr, nc);
@@ -211,7 +229,11 @@ class SpecialResolver {
             if (board.get(rr, cc) == targetVal) {
               board.set(rr, cc, 0);
               count++;
-              spawnParticle(cc * kCell + kCell/2, rr * kCell + kCell/2, targetVal);
+              spawnParticle(
+                cc * kCell + kCell / 2,
+                rr * kCell + kCell / 2,
+                targetVal,
+              );
             }
           }
         }
@@ -234,17 +256,22 @@ class SpecialResolver {
         if (board.get(r, c) != type) continue;
         board.set(r, c, 0);
         bool hit = false;
-        for (final d in [[-1,0],[1,0],[0,-1],[0,1]]) {
+        for (final d in [
+          [-1, 0],
+          [1, 0],
+          [0, -1],
+          [0, 1],
+        ]) {
           final nr = r + d[0], nc = c + d[1];
           if (nr < 0 || nr >= kRows || nc < 0 || nc >= kCols) continue;
           final v = board.get(nr, nc);
           if (v <= 0 || isObstacle(v)) continue;
           if (claimed.contains('$nr,$nc')) continue;
           claimed.add('$nr,$nc');
-          final newVal = (v * mult).clamp(0, 4194304);
+          final newVal = (v * mult).clamp(0, 536870912);
           board.set(nr, nc, newVal);
           addScore(newVal);
-          spawnParticle(nc * kCell + kCell/2, nr * kCell + kCell/2, newVal);
+          spawnParticle(nc * kCell + kCell / 2, nr * kCell + kCell / 2, newVal);
           onMeterGain?.call(_getMergeFillStatic(newVal));
           hit = true;
         }
@@ -254,7 +281,7 @@ class SpecialResolver {
             final v = board.get(nr, c);
             if (v > 0 && !isObstacle(v) && !claimed.contains('$nr,$c')) {
               claimed.add('$nr,$c');
-              final newVal = (v * mult).clamp(0, 4194304);
+              final newVal = (v * mult).clamp(0, 536870912);
               board.set(nr, c, newVal);
               onMeterGain?.call(_getMergeFillStatic(newVal));
               break;
