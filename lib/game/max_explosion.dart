@@ -17,6 +17,7 @@ const List<SeasonInfo> kSeasons = [
   SeasonInfo(key:'gravity',    emoji:'🔄', name:'YERÇEKİMİ',   color:Color(0xFF8844FF)),
   SeasonInfo(key:'chaos',      emoji:'💥', name:'KAOS',        color:Color(0xFFFF4488)),
   SeasonInfo(key:'mystery',    emoji:'❓', name:'GİZEM',       color:Color(0xFF888888)),
+  SeasonInfo(key:'darkness',   emoji:'🌑', name:'KARANLIK',    color:Color(0xFF222244)),
 ];
 
 // ═══════════════════════════════════════════════════════════

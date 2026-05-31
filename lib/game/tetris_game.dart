@@ -49,7 +49,6 @@ class TetrisGame extends FlameGame
   bool _gravityReversed = false;
   bool _doubleVisionActive = false;
   Piece? _fakePiece;
-  bool _fakeIsLeft = false;
   double _fakeDissolveTimer = 0.0;
   bool _fakeDissolving = false;
   int streak = 0;
@@ -82,6 +81,7 @@ class TetrisGame extends FlameGame
   double _seasonBombTimer = 0; // bomba mevsimi için
   int _pendingSeasonIdx = 0;
   bool _mysteryActive = false;
+  bool _darknessActive = false;
 
   // Evrim animasyonu
   bool _evolutionActive = false;
@@ -260,7 +260,6 @@ class TetrisGame extends FlameGame
     _gravityReversed = false;
     _doubleVisionActive = false;
     _fakePiece = null;
-    _fakeIsLeft = false;
     _fakeDissolveTimer = 0.0;
     _fakeDissolving = false;
     speed = 540;
@@ -278,6 +277,7 @@ class TetrisGame extends FlameGame
     seasonTurnsLeft = 0;
     _seasonBombTimer = 0;
     _mysteryActive = false;
+    _darknessActive = false;
     _evolutionActive = false;
     _evolutionTimer = 0.0;
     _evolutionFrom = 0;
@@ -344,8 +344,9 @@ class TetrisGame extends FlameGame
         return KeyEventResult.handled;
       }
       if (event.logicalKey == LogicalKeyboardKey.keyA) {
-        _pendingSeasonIdx = kSeasons.indexWhere((s) => s.key == 'double_vision');
-        unawaited(_startRandomSeason());
+        activeSeason = 'darkness';
+        _darknessActive = true;
+        seasonTurnsLeft = 10;
         return KeyEventResult.handled;
       }
     }
@@ -752,13 +753,26 @@ class TetrisGame extends FlameGame
   // Çift Görme mevsiminde sahte parçayı oluştur
   void _spawnFakePiece() {
     if (!_doubleVisionActive) return;
-    _fakeIsLeft = _rng.nextBool();
     final cols = currentPiece.shape.isEmpty ? 1 : currentPiece.shape[0].length;
-    final offsetX = _fakeIsLeft ? -3 : 3;
-    final newX = (currentPiece.x + offsetX).clamp(0, kCols - cols);
+    // 2 veya 3 boşluk — önce sağa dene, olmadı sola
+    final offset = 2 + _rng.nextInt(2); // 2 veya 3
+    final directions = [true, false]; // true=sola, false=sağa
+    directions.shuffle(_rng);
+
+    int? validX;
+    for (final goLeft in directions) {
+      final candidate = currentPiece.x + (goLeft ? -offset : offset);
+      if (candidate >= 0 && candidate + cols <= kCols) {
+        validX = candidate;
+        break;
+      }
+    }
+
+    if (validX == null) return; // uygun pozisyon bulunamadı
+
     _fakePiece = Piece(
       shape: currentPiece.shape.map((row) => List<int>.from(row)).toList(),
-      x: newX,
+      x: validX,
       y: currentPiece.y,
       frozen: currentPiece.frozen,
     );
@@ -786,24 +800,27 @@ class TetrisGame extends FlameGame
   }
 
   void _moveLeft() {
-    if (!gameActive || paused) return;
-    if (_valid(currentPiece.shape, currentPiece.x - 1, currentPiece.y)) {
+    final realCanMove = _valid(currentPiece.shape, currentPiece.x - 1, currentPiece.y);
+    final fakeCanMove = !_doubleVisionActive || _fakePiece == null || _fakeDissolving ||
+        _valid(_fakePiece!.shape, _fakePiece!.x - 1, _fakePiece!.y);
+
+    if (realCanMove && fakeCanMove) {
       currentPiece.x--;
       if (_doubleVisionActive && _fakePiece != null && !_fakeDissolving) {
-        final newFakeX = _fakePiece!.x - 1;
-        if (newFakeX >= 0) _fakePiece!.x = newFakeX;
+        _fakePiece!.x--;
       }
     }
   }
 
   void _moveRight() {
-    if (!gameActive || paused) return;
-    if (_valid(currentPiece.shape, currentPiece.x + 1, currentPiece.y)) {
+    final realCanMove = _valid(currentPiece.shape, currentPiece.x + 1, currentPiece.y);
+    final fakeCanMove = !_doubleVisionActive || _fakePiece == null || _fakeDissolving ||
+        _valid(_fakePiece!.shape, _fakePiece!.x + 1, _fakePiece!.y);
+
+    if (realCanMove && fakeCanMove) {
       currentPiece.x++;
       if (_doubleVisionActive && _fakePiece != null && !_fakeDissolving) {
-        final newFakeX = _fakePiece!.x + 1;
-        final fakeW = _fakePiece!.shape.isEmpty ? 1 : _fakePiece!.shape[0].length;
-        if (newFakeX + fakeW <= kCols) _fakePiece!.x = newFakeX;
+        _fakePiece!.x++;
       }
     }
   }
@@ -822,7 +839,12 @@ class TetrisGame extends FlameGame
       if (_valid(currentPiece.shape, currentPiece.x, currentPiece.y + 1)) {
         currentPiece.y++;
         if (_doubleVisionActive && _fakePiece != null && !_fakeDissolving) {
-          if (_fakePiece!.y < kRows - _fakePiece!.height) _fakePiece!.y++;
+          if (_valid(_fakePiece!.shape, _fakePiece!.x, _fakePiece!.y + 1)) {
+            _fakePiece!.y++;
+          } else {
+            _fakeDissolving = true;
+            _fakeDissolveTimer = 0.0;
+          }
         }
       } else {
         _lockPiece();
@@ -876,7 +898,12 @@ class TetrisGame extends FlameGame
       while (_valid(currentPiece.shape, currentPiece.x, currentPiece.y + 1)) {
         currentPiece.y++;
         if (_doubleVisionActive && _fakePiece != null && !_fakeDissolving) {
-          if (_fakePiece!.y < kRows - _fakePiece!.height) _fakePiece!.y++;
+          if (_valid(_fakePiece!.shape, _fakePiece!.x, _fakePiece!.y + 1)) {
+            _fakePiece!.y++;
+          } else {
+            _fakeDissolving = true;
+            _fakeDissolveTimer = 0.0;
+          }
         }
       }
     }
@@ -1100,6 +1127,7 @@ class TetrisGame extends FlameGame
       PieceGenerator.generate(score, moveCount, season: activeSeason),
     );
     pieceVisualY = currentPiece.y.toDouble();
+    if (_doubleVisionActive) _spawnFakePiece();
 
     if (!_valid(currentPiece.shape, currentPiece.x, currentPiece.y)) {
       _endGame();
@@ -1345,6 +1373,9 @@ class TetrisGame extends FlameGame
       // Tum board'daki bloklari gizle
       _mysteryActive = true;
     }
+    if (activeSeason == 'darkness') {
+      _darknessActive = true;
+    }
 
     // Kuyruktaki eski parçaları yeni mevsime göre yenile
     nextPiece = PieceGenerator.generate(score, moveCount, season: activeSeason);
@@ -1381,6 +1412,7 @@ class TetrisGame extends FlameGame
     }
 
     if (season == 'mystery') _mysteryActive = false;
+    if (season == 'darkness') _darknessActive = false;
     if (season == 'gravity') {
       _gravityReversed = false;
       board.flipVertical(frozenSet);
@@ -1596,7 +1628,6 @@ class TetrisGame extends FlameGame
       if (_fakeDissolveTimer >= 0.4) {
         _fakePiece = null;
         _fakeDissolving = false;
-        if (_doubleVisionActive && gameActive) _spawnFakePiece();
       }
     }
 
@@ -1686,7 +1717,12 @@ class TetrisGame extends FlameGame
         if (_valid(currentPiece.shape, currentPiece.x, currentPiece.y + 1)) {
           currentPiece.y++;
           if (_doubleVisionActive && _fakePiece != null && !_fakeDissolving) {
-            if (_fakePiece!.y < kRows - _fakePiece!.height) _fakePiece!.y++;
+            if (_valid(_fakePiece!.shape, _fakePiece!.x, _fakePiece!.y + 1)) {
+              _fakePiece!.y++;
+            } else {
+              _fakeDissolving = true;
+              _fakeDissolveTimer = 0.0;
+            }
           }
         } else {
           _lockPiece();
@@ -1720,6 +1756,7 @@ class TetrisGame extends FlameGame
     _drawGhost(canvas);
     _drawFakePiece(canvas);
     _drawPiece(canvas);
+    _drawDarkness(canvas);
     particles.render(canvas, boardX, boardY, screenW: size.x, screenH: size.y);
     _drawUI(canvas);
     _drawOverlays(canvas);
@@ -2565,22 +2602,70 @@ class TetrisGame extends FlameGame
         gy++;
       }
     }
-    if (gy == currentPiece.y) return;
-    for (int r = 0; r < currentPiece.shape.length; r++) {
-      for (int c = 0; c < currentPiece.shape[r].length; c++) {
-        final v = currentPiece.shape[r][c];
-        if (v != 0) {
-          _drawTile(
-            canvas,
-            boardX + (currentPiece.x + c) * kCell,
-            boardY + (gy + r) * kCell,
-            v,
-            0.18,
-            ghost: true,
-          );
+    if (gy != currentPiece.y) {
+      for (int r = 0; r < currentPiece.shape.length; r++) {
+        for (int c = 0; c < currentPiece.shape[r].length; c++) {
+          final v = currentPiece.shape[r][c];
+          if (v != 0) {
+            _drawTile(
+              canvas,
+              boardX + (currentPiece.x + c) * kCell,
+              boardY + (gy + r) * kCell,
+              v,
+              0.18,
+              ghost: true,
+            );
+          }
         }
       }
     }
+
+    // Sahte parça ghost
+    if (_doubleVisionActive && _fakePiece != null && !_fakeDissolving) {
+      final fp = _fakePiece!;
+      int fgy = fp.y;
+      if (_gravityReversed) {
+        while (_valid(fp.shape, fp.x, fgy - 1)) {
+          fgy--;
+        }
+      } else {
+        while (_valid(fp.shape, fp.x, fgy + 1)) {
+          fgy++;
+        }
+      }
+      if (fgy != fp.y) {
+        for (int r = 0; r < fp.shape.length; r++) {
+          for (int c = 0; c < fp.shape[r].length; c++) {
+            final v = fp.shape[r][c];
+            if (v != 0) {
+              _drawTile(
+                canvas,
+                boardX + (fp.x + c) * kCell,
+                boardY + (fgy + r) * kCell,
+                v,
+                0.18,
+                ghost: true,
+              );
+            }
+          }
+        }
+      }
+    }
+  }
+
+  void _drawDarkness(Canvas canvas) {
+    if (!_darknessActive || !gameActive) return;
+    final cx = boardX + (currentPiece.x + currentPiece.shape[0].length / 2) * kCell;
+    final cy = boardY + (pieceVisualY + currentPiece.shape.length / 2) * kCell;
+    final boardRect = Rect.fromLTWH(boardX, boardY, kCols * kCell, kRows * kCell);
+    canvas.saveLayer(boardRect, Paint());
+    canvas.drawRect(boardRect, Paint()..color = Colors.black);
+    canvas.drawCircle(
+      Offset(cx, cy),
+      kCell * 2.5,
+      Paint()..blendMode = BlendMode.dstOut,
+    );
+    canvas.restore();
   }
 
   void _drawPiece(Canvas canvas) {
@@ -2618,8 +2703,12 @@ class TetrisGame extends FlameGame
         if (v == 0) continue;
 
         // Dağılma efekti: her hücre rastgele küçük offset
-        final ox = _fakeDissolving ? (_rng.nextDouble() - 0.5) * 10 * dissolveRatio : 0.0;
-        final oy = _fakeDissolving ? (_rng.nextDouble() - 0.5) * 10 * dissolveRatio : 0.0;
+        final ox = _fakeDissolving
+            ? (_rng.nextDouble() - 0.5) * 10 * dissolveRatio
+            : 0.0;
+        final oy = _fakeDissolving
+            ? (_rng.nextDouble() - 0.5) * 10 * dissolveRatio
+            : 0.0;
         final px = boardX + (fp.x + c) * kCell + ox;
         final py = boardY + (fp.y + r) * kCell + oy;
 
@@ -2631,10 +2720,18 @@ class TetrisGame extends FlameGame
           const pad = 2.0;
           canvas.drawRRect(
             RRect.fromRectAndRadius(
-              Rect.fromLTWH(px + pad, py + pad, kCell - pad * 2, kCell - pad * 2),
+              Rect.fromLTWH(
+                px + pad,
+                py + pad,
+                kCell - pad * 2,
+                kCell - pad * 2,
+              ),
               const Radius.circular(14),
             ),
-            Paint()..color = Colors.red.withValues(alpha: dissolveRatio * 0.55 * alpha),
+            Paint()
+              ..color = Colors.red.withValues(
+                alpha: dissolveRatio * 0.55 * alpha,
+              ),
           );
         }
       }
