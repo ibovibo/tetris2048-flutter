@@ -294,6 +294,32 @@ class ParticleSystem {
     _shocks.add(ShockWave(x:cx, y:cy, color:Colors.white,             maxRadius:kCell*2.0, thickness:5));
   }
 
+  // ── Altın yağmuru (cennet mevsimi) ───────────────────────
+  void spawnGoldRain(double boardLeft, double boardRight, double topY) {
+    const goldCols = [
+      Color(0xFFFFD700), Color(0xFFFFE44D),
+      Color(0xFFFFC200), Color(0xFFFFEEAA),
+      Colors.white,
+    ];
+    final count = 3 + _rng.nextInt(4);
+    for (int i = 0; i < count; i++) {
+      final x = boardLeft + _rng.nextDouble() * (boardRight - boardLeft);
+      final color = goldCols[_rng.nextInt(goldCols.length)];
+      _particles.add(Particle(
+        x: x,
+        y: topY - _rng.nextDouble() * kCell,
+        vx: (_rng.nextDouble() - 0.5) * 2.0,
+        vy: 12.0 + _rng.nextDouble() * 10.0,
+        color: color,
+        size: 2.5 + _rng.nextDouble() * 4.5,
+        isSquare: _rng.nextDouble() > 0.35,
+        life: 0.9 + _rng.nextDouble() * 0.4,
+        rotation: _rng.nextDouble() * math.pi * 2,
+        rotSpeed: (_rng.nextDouble() - 0.5) * 8,
+      ));
+    }
+  }
+
   // ── Konfeti ──────────────────────────────────────────────
   void spawnConfetti(double cx, double cy) {
     final cols = [

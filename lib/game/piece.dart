@@ -27,6 +27,16 @@ class Piece {
     return Piece(shape: newShape, x: x, y: y, frozen: frozen);
   }
 
+  Piece rotatedReverse() {
+    final rows = shape.length;
+    final cols = shape[0].length;
+    final newShape = List.generate(
+      cols,
+      (c) => List.generate(rows, (r) => shape[r][cols - 1 - c]),
+    );
+    return Piece(shape: newShape, x: x, y: y, frozen: frozen);
+  }
+
   List<List<int>> get cells => shape;
 }
 
@@ -191,15 +201,18 @@ class PieceGenerator {
         if (roll < pBomb) return _single(kBomb);
         if (roll < pBomb + pMegaBomb) return _single(kMegaBomb);
         if (roll < pBomb + pMegaBomb + pIce) return _single(kIce);
-        final doubleVision = season == 'double_vision';
-        if (roll < pBomb + pMegaBomb + pIce + pX2)
-          return doubleVision ? _single(kX2) : _multiType(kX2, season: season);
-        if (roll < pBomb + pMegaBomb + pIce + pX2 + pX4)
-          return doubleVision ? _single(kX4) : _multiType(kX4, season: season);
-        if (roll < pBomb + pMegaBomb + pIce + pX2 + pX4 + pX8)
-          return doubleVision ? _single(kX8) : _multiType(kX8, season: season);
-        if (roll < pBomb + pMegaBomb + pIce + pX2 + pX4 + pX8 + pX16)
-          return doubleVision ? _single(kX16) : _multiType(kX16, season: season);
+        if (roll < pBomb + pMegaBomb + pIce + pX2) {
+          return _multiType(kX2, season: season);
+        }
+        if (roll < pBomb + pMegaBomb + pIce + pX2 + pX4) {
+          return _multiType(kX4, season: season);
+        }
+        if (roll < pBomb + pMegaBomb + pIce + pX2 + pX4 + pX8) {
+          return _multiType(kX8, season: season);
+        }
+        if (roll < pBomb + pMegaBomb + pIce + pX2 + pX4 + pX8 + pX16) {
+          return _multiType(kX16, season: season);
+        }
         if (_rng.nextDouble() < pJoker) return _single(kJoker);
         if (_rng.nextDouble() < pStar) return _single(kStar);
         if (_rng.nextDouble() < 0.05) return _single(kChaos);
@@ -216,8 +229,6 @@ class PieceGenerator {
         break;
       }
     }
-    if (season == 'double_vision') size = 1;
-
     return _buildNormal(size, score, moveCount);
   }
 
@@ -232,22 +243,23 @@ class PieceGenerator {
 
   static Piece _multiType(int type, {String? season}) {
     final size = _rng.nextInt(3) + 1;
-    if (size == 1)
+    if (size == 1) {
       return Piece(
         shape: [
           [type],
         ],
         x: 2,
       );
+    }
     if (_rng.nextBool()) {
       return Piece(
         shape: [List.filled(size, type)],
-        x: season == 'double_vision' ? 1 + _rng.nextInt(kCols - 2) : _rng.nextInt(kCols - size + 1),
+        x: _rng.nextInt(kCols - size + 1),
       );
     } else {
       return Piece(
         shape: List.generate(size, (_) => [type]),
-        x: season == 'double_vision' ? 1 + _rng.nextInt(kCols - 2) : _rng.nextInt(kCols),
+        x: _rng.nextInt(kCols),
       );
     }
   }

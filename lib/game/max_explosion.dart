@@ -12,12 +12,15 @@ class SeasonInfo {
 
 const List<SeasonInfo> kSeasons = [
   SeasonInfo(key:'bomb',       emoji:'🔥', name:'BOMBA',       color:Color(0xFFFF4400)),
-  SeasonInfo(key:'double_vision', emoji:'👁', name:'ÇİFT GÖRME', color:Color(0xFFFF88FF)),
+  SeasonInfo(key:'chaos_controls', emoji:'🔀', name:'KARMAŞA',   color:Color(0xFFFF88FF)),
   SeasonInfo(key:'ice',        emoji:'❄',  name:'BUZ',         color:Color(0xFF88EEFF)),
   SeasonInfo(key:'gravity',    emoji:'🔄', name:'YERÇEKİMİ',   color:Color(0xFF8844FF)),
   SeasonInfo(key:'chaos',      emoji:'💥', name:'KAOS',        color:Color(0xFFFF4488)),
   SeasonInfo(key:'mystery',    emoji:'❓', name:'GİZEM',       color:Color(0xFF888888)),
   SeasonInfo(key:'darkness',   emoji:'🌑', name:'KARANLIK',    color:Color(0xFF222244)),
+  SeasonInfo(key:'evolution',  emoji:'🧬', name:'EVRİM',       color:Color(0xFF44FF88)),
+  SeasonInfo(key:'voltage',    emoji:'⚡', name:'VOLTAJ',      color:Color(0xFF00BFFF)),
+  SeasonInfo(key:'volcano',    emoji:'🌋', name:'YANARDAĞ',    color:Color(0xFFFF5500)),
 ];
 
 // ═══════════════════════════════════════════════════════════

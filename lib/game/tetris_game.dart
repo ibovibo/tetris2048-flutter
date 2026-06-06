@@ -6,7 +6,6 @@ import 'package:flame/flame.dart';
 import 'package:flame/events.dart';
 import 'package:flame/game.dart';
 import 'package:flame/input.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -47,10 +46,7 @@ class TetrisGame extends FlameGame
   double _meterDisplay = 0.0; // görsel meter — gerçek meter'a smooth yaklaşır
   int _pendingSpecialCount = 0;
   bool _gravityReversed = false;
-  bool _doubleVisionActive = false;
-  Piece? _fakePiece;
-  double _fakeDissolveTimer = 0.0;
-  bool _fakeDissolving = false;
+  bool _chaosControlsActive = false;
   int streak = 0;
   double streakTimer = 0;
   int moveCount = 0;
@@ -85,6 +81,7 @@ class TetrisGame extends FlameGame
 
   // Evrim animasyonu
   bool _evolutionActive = false;
+  bool _evolutionIsSeasonCycle = false;
   double _evolutionTimer = 0.0;
   int _evolutionFrom = 0;
   int _evolutionTo = 0;
@@ -92,6 +89,24 @@ class TetrisGame extends FlameGame
   List<(int, int)> _evolutionTargets = [];
   bool _evolutionBlastDone = false;
   double _evolutionFlash = 0.0;
+  final List<(int, int)> _evolutionSeasonQueue = [];
+  double _evolutionSeasonTimer = 0.0;
+  double _evolutionSeasonInterval = 0.0;
+
+  // Voltaj mevsimi
+  bool _voltageActive = false;
+  double _voltageElectricTimer = 0.0;
+  final List<VoltageZap> _voltageZaps = [];
+  List<(int, int, double)> _voltageAffectedCells = [];
+
+  // Yanardağ mevsimi
+  bool _volcanoActive = false;
+  List<int> _volcanoRockRows = [];
+  bool _volcanoAnimating = false;
+  double _volcanoAnimTimer = 0.0;
+  double _volcanoSlideOffset = 0.0;
+  bool _volcanoCleanup = false;
+  double _volcanoCleanupTimer = 0.0;
 
   double boardX = 0;
   double boardY = 0;
@@ -258,10 +273,7 @@ class TetrisGame extends FlameGame
     _meterDisplay = 0.0;
     _pendingSpecialCount = 0;
     _gravityReversed = false;
-    _doubleVisionActive = false;
-    _fakePiece = null;
-    _fakeDissolveTimer = 0.0;
-    _fakeDissolving = false;
+    _chaosControlsActive = false;
     speed = 540;
     dropTimer = 0;
     frozenSet = {};
@@ -279,6 +291,7 @@ class TetrisGame extends FlameGame
     _mysteryActive = false;
     _darknessActive = false;
     _evolutionActive = false;
+    _evolutionIsSeasonCycle = false;
     _evolutionTimer = 0.0;
     _evolutionFrom = 0;
     _evolutionTo = 0;
@@ -286,6 +299,20 @@ class TetrisGame extends FlameGame
     _evolutionTargets = [];
     _evolutionBlastDone = false;
     _evolutionFlash = 0.0;
+    _evolutionSeasonQueue.clear();
+    _evolutionSeasonTimer = 0.0;
+    _evolutionSeasonInterval = 0.0;
+    _voltageActive = false;
+    _voltageElectricTimer = 0.0;
+    _voltageZaps.clear();
+    _voltageAffectedCells = [];
+    _volcanoActive = false;
+    _volcanoRockRows = [];
+    _volcanoAnimating = false;
+    _volcanoAnimTimer = 0.0;
+    _volcanoSlideOffset = 0.0;
+    _volcanoCleanup = false;
+    _volcanoCleanupTimer = 0.0;
     _glowCache.clear();
     particles.seasonBg.setSeason(null);
     multiplierLines.clear();
@@ -319,7 +346,7 @@ class TetrisGame extends FlameGame
     Set<LogicalKeyboardKey> keysPressed,
   ) {
     if (event is KeyDownEvent) {
-      if (_evolutionActive) return KeyEventResult.handled;
+      if (_volcanoAnimating) return KeyEventResult.handled;
       if (event.logicalKey == LogicalKeyboardKey.keyD) {
         gameActive = false;
         return KeyEventResult.handled;
@@ -344,9 +371,9 @@ class TetrisGame extends FlameGame
         return KeyEventResult.handled;
       }
       if (event.logicalKey == LogicalKeyboardKey.keyA) {
-        activeSeason = 'darkness';
-        _darknessActive = true;
-        seasonTurnsLeft = 10;
+        activeSeason = 'voltage';
+        _voltageActive = true;
+        seasonTurnsLeft = 5;
         return KeyEventResult.handled;
       }
     }
@@ -363,7 +390,7 @@ class TetrisGame extends FlameGame
 
   @override
   void onPanUpdate(DragUpdateInfo info) {
-    if (!gameActive || paused || _evolutionActive) return;
+    if (!gameActive || paused || _volcanoAnimating) return;
     _dragTotalX += info.delta.global.x;
     _dragTotalY += info.delta.global.y;
 
@@ -399,14 +426,14 @@ class TetrisGame extends FlameGame
 
   @override
   void onDoubleTapDown(TapDownInfo info) {
-    if (!gameActive || paused || _evolutionActive) return;
+    if (!gameActive || paused || _volcanoAnimating) return;
     if (_maxExplosion != null) return;
     _rotate();
   }
 
   @override
   void onTapDown(TapDownInfo info) async {
-    if (_evolutionActive) return;
+    if (_volcanoAnimating) return;
     final tap = info.eventPosition.global;
     final bw = kCols * kCell;
     final bh = kRows * kCell;
@@ -750,36 +777,6 @@ class TetrisGame extends FlameGame
     onPause?.call();
   }
 
-  // Çift Görme mevsiminde sahte parçayı oluştur
-  void _spawnFakePiece() {
-    if (!_doubleVisionActive) return;
-    final cols = currentPiece.shape.isEmpty ? 1 : currentPiece.shape[0].length;
-    // 2 veya 3 boşluk — önce sağa dene, olmadı sola
-    final offset = 2 + _rng.nextInt(2); // 2 veya 3
-    final directions = [true, false]; // true=sola, false=sağa
-    directions.shuffle(_rng);
-
-    int? validX;
-    for (final goLeft in directions) {
-      final candidate = currentPiece.x + (goLeft ? -offset : offset);
-      if (candidate >= 0 && candidate + cols <= kCols) {
-        validX = candidate;
-        break;
-      }
-    }
-
-    if (validX == null) return; // uygun pozisyon bulunamadı
-
-    _fakePiece = Piece(
-      shape: currentPiece.shape.map((row) => List<int>.from(row)).toList(),
-      x: validX,
-      y: currentPiece.y,
-      frozen: currentPiece.frozen,
-    );
-    _fakeDissolving = false;
-    _fakeDissolveTimer = 0.0;
-  }
-
   bool _valid(List<List<int>> shape, int ox, int oy) {
     for (int r = 0; r < shape.length; r++) {
       for (int c = 0; c < shape[r].length; c++) {
@@ -800,28 +797,24 @@ class TetrisGame extends FlameGame
   }
 
   void _moveLeft() {
-    final realCanMove = _valid(currentPiece.shape, currentPiece.x - 1, currentPiece.y);
-    final fakeCanMove = !_doubleVisionActive || _fakePiece == null || _fakeDissolving ||
-        _valid(_fakePiece!.shape, _fakePiece!.x - 1, _fakePiece!.y);
-
-    if (realCanMove && fakeCanMove) {
-      currentPiece.x--;
-      if (_doubleVisionActive && _fakePiece != null && !_fakeDissolving) {
-        _fakePiece!.x--;
-      }
-    }
+    if (_chaosControlsActive) { _doMoveRight(); return; }
+    _doMoveLeft();
   }
 
   void _moveRight() {
-    final realCanMove = _valid(currentPiece.shape, currentPiece.x + 1, currentPiece.y);
-    final fakeCanMove = !_doubleVisionActive || _fakePiece == null || _fakeDissolving ||
-        _valid(_fakePiece!.shape, _fakePiece!.x + 1, _fakePiece!.y);
+    if (_chaosControlsActive) { _doMoveLeft(); return; }
+    _doMoveRight();
+  }
 
-    if (realCanMove && fakeCanMove) {
+  void _doMoveLeft() {
+    if (_valid(currentPiece.shape, currentPiece.x - 1, currentPiece.y)) {
+      currentPiece.x--;
+    }
+  }
+
+  void _doMoveRight() {
+    if (_valid(currentPiece.shape, currentPiece.x + 1, currentPiece.y)) {
       currentPiece.x++;
-      if (_doubleVisionActive && _fakePiece != null && !_fakeDissolving) {
-        _fakePiece!.x++;
-      }
     }
   }
 
@@ -838,14 +831,6 @@ class TetrisGame extends FlameGame
       // Normal yerçekimi — aşağı tuşu = aşağıya doğru
       if (_valid(currentPiece.shape, currentPiece.x, currentPiece.y + 1)) {
         currentPiece.y++;
-        if (_doubleVisionActive && _fakePiece != null && !_fakeDissolving) {
-          if (_valid(_fakePiece!.shape, _fakePiece!.x, _fakePiece!.y + 1)) {
-            _fakePiece!.y++;
-          } else {
-            _fakeDissolving = true;
-            _fakeDissolveTimer = 0.0;
-          }
-        }
       } else {
         _lockPiece();
       }
@@ -854,7 +839,10 @@ class TetrisGame extends FlameGame
 
   void _rotate() {
     if (!gameActive || paused) return;
-    final rot = currentPiece.rotated();
+    // Karmaşa mevsiminde ters yönde döndür
+    final rot = _chaosControlsActive
+        ? currentPiece.rotatedReverse()
+        : currentPiece.rotated();
     // SRS-benzeri wall kick: merkez → sol → sağ → 2 sol → 2 sağ → zemin kick
     const kicks = [
       [0, 0],
@@ -871,16 +859,6 @@ class TetrisGame extends FlameGame
         currentPiece = rot;
         currentPiece.x += k[0];
         currentPiece.y += k[1];
-        // Sahte parçayı da döndür
-        if (_doubleVisionActive && _fakePiece != null && !_fakeDissolving) {
-          final fakeRot = _fakePiece!.rotated();
-          fakeRot.x += k[0];
-          fakeRot.y += k[1];
-          final fakeW = fakeRot.shape.isEmpty ? 1 : fakeRot.shape[0].length;
-          fakeRot.x = fakeRot.x.clamp(0, kCols - fakeW);
-          fakeRot.y = fakeRot.y.clamp(0, kRows - fakeRot.height);
-          _fakePiece = fakeRot;
-        }
         return;
       }
     }
@@ -897,14 +875,6 @@ class TetrisGame extends FlameGame
       // Normal yerçekimi — tabana kadar git (y arttır)
       while (_valid(currentPiece.shape, currentPiece.x, currentPiece.y + 1)) {
         currentPiece.y++;
-        if (_doubleVisionActive && _fakePiece != null && !_fakeDissolving) {
-          if (_valid(_fakePiece!.shape, _fakePiece!.x, _fakePiece!.y + 1)) {
-            _fakePiece!.y++;
-          } else {
-            _fakeDissolving = true;
-            _fakeDissolveTimer = 0.0;
-          }
-        }
       }
     }
     _lockPiece();
@@ -927,12 +897,6 @@ class TetrisGame extends FlameGame
       }
     }
 
-    // Çift Görme: sahte parçayı dağıt (board'a YAZMA, sadece görsel)
-    if (_doubleVisionActive && _fakePiece != null) {
-      _fakeDissolving = true;
-      _fakeDissolveTimer = 0.0;
-    }
-
     // Bounce efekti
     for (int r = 0; r < currentPiece.shape.length; r++) {
       for (int c = 0; c < currentPiece.shape[r].length; c++) {
@@ -946,13 +910,23 @@ class TetrisGame extends FlameGame
       }
     }
 
+    // Voltaj mevsimi — kilitlenen parçanın 3x3 komşularını etkile
+    _applyVoltageEffect();
+
     moveCount++;
     totalMoves++;
 
-    // Mevsim turu azalt
+    // Yanardağ — animasyon her tur tetiklenir, _endSeason son animasyon sonrası
+    if (activeSeason == 'volcano') {
+      _volcanoAnimating = true;
+      _volcanoAnimTimer = 0.0;
+      _volcanoSlideOffset = 0.0;
+    }
+
+    // Mevsim turu azalt (volcano için _endSeason _doVolcanoShift'e bırakıldı)
     if (seasonTurnsLeft > 0) {
       seasonTurnsLeft--;
-      if (seasonTurnsLeft == 0) {
+      if (seasonTurnsLeft == 0 && activeSeason != 'volcano') {
         unawaited(_endSeason());
       }
     }
@@ -1127,8 +1101,6 @@ class TetrisGame extends FlameGame
       PieceGenerator.generate(score, moveCount, season: activeSeason),
     );
     pieceVisualY = currentPiece.y.toDouble();
-    if (_doubleVisionActive) _spawnFakePiece();
-
     if (!_valid(currentPiece.shape, currentPiece.x, currentPiece.y)) {
       _endGame();
       return;
@@ -1148,9 +1120,32 @@ class TetrisGame extends FlameGame
     for (final entry in thresholds.entries) {
       if (score >= entry.key && !_evolvedThresholds.contains(entry.key)) {
         _evolvedThresholds.add(entry.key);
+        _evolutionIsSeasonCycle = false;
         _startEvolution(entry.value.$1, entry.value.$2);
         return;
       }
+    }
+  }
+
+  void _triggerEvolutionSeasonCycle() {
+    if (_evolutionActive) return; // önceki animasyon hâlâ oynarsa kuyrukla
+    final values = <int>{};
+    for (int r = 0; r < kRows; r++) {
+      for (int c = 0; c < kCols; c++) {
+        final v = board.get(r, c);
+        if (v > 0 && v * 2 <= 536870912) values.add(v);
+      }
+    }
+    if (values.isEmpty) return;
+    final list = values.toList()..shuffle(_rng);
+    _evolutionSeasonQueue.clear();
+    for (final v in list.take(_rng.nextInt(2) + 3)) {
+      _evolutionSeasonQueue.add((v, v * 2));
+    }
+    if (_evolutionSeasonQueue.isNotEmpty) {
+      _evolutionIsSeasonCycle = true;
+      final next = _evolutionSeasonQueue.removeAt(0);
+      _startEvolution(next.$1, next.$2);
     }
   }
 
@@ -1343,12 +1338,14 @@ class TetrisGame extends FlameGame
     debugPrint(
       '_startRandomSeason: activeSeason=$activeSeason, pendingIdx=$_pendingSeasonIdx',
     );
-    seasonTurnsLeft = 10;
+    seasonTurnsLeft = activeSeason == 'evolution' ? 5
+        : activeSeason == 'voltage' ? 5
+        : activeSeason == 'volcano' ? 3
+        : 10;
     _seasonBombTimer = 2.0;
 
-    if (activeSeason == 'double_vision') {
-      _doubleVisionActive = true;
-      _spawnFakePiece();
+    if (activeSeason == 'chaos_controls') {
+      _chaosControlsActive = true;
     }
     if (activeSeason == 'gravity') {
       _gravityReversed = true;
@@ -1376,6 +1373,25 @@ class TetrisGame extends FlameGame
     if (activeSeason == 'darkness') {
       _darknessActive = true;
     }
+    if (activeSeason == 'evolution') {
+      _evolutionSeasonTimer = 0.0;
+      _evolutionSeasonInterval = 2.0 + _rng.nextDouble();
+      _evolutionSeasonQueue.clear();
+    }
+    if (activeSeason == 'voltage') {
+      _voltageActive = true;
+      _voltageElectricTimer = 0.0;
+      _voltageZaps.clear();
+      _voltageAffectedCells = [];
+    }
+    if (activeSeason == 'volcano') {
+      _volcanoActive = true;
+      _volcanoRockRows = [];
+      // İlk yükselme hemen başlasın — blok beklenmeden
+      _volcanoAnimating = true;
+      _volcanoAnimTimer = 0.0;
+      _volcanoSlideOffset = 0.0;
+    }
 
     // Kuyruktaki eski parçaları yeni mevsime göre yenile
     nextPiece = PieceGenerator.generate(score, moveCount, season: activeSeason);
@@ -1390,10 +1406,8 @@ class TetrisGame extends FlameGame
 
   Future<void> _endSeason() async {
     final season = activeSeason;
-    if (season == 'double_vision') {
-      _doubleVisionActive = false;
-      _fakePiece = null;
-      _fakeDissolving = false;
+    if (season == 'chaos_controls') {
+      _chaosControlsActive = false;
     }
 
     // BGM'i normale döndür, mevsim müziğini durdur
@@ -1413,6 +1427,25 @@ class TetrisGame extends FlameGame
 
     if (season == 'mystery') _mysteryActive = false;
     if (season == 'darkness') _darknessActive = false;
+    if (season == 'evolution') {
+      _evolutionSeasonQueue.clear();
+      _evolutionSeasonTimer = 0.0;
+      _evolutionSeasonInterval = 0.0;
+    }
+    if (season == 'voltage') {
+      _voltageActive = false;
+      _voltageZaps.clear();
+      _voltageAffectedCells = [];
+    }
+    if (season == 'volcano') {
+      _volcanoAnimating = false;
+      _volcanoAnimTimer = 0.0;
+      _volcanoSlideOffset = 0.0;
+      _volcanoActive = false;
+      // Temizlik animasyonunu update loop'a devret
+      _volcanoCleanup = true;
+      _volcanoCleanupTimer = 0.0;
+    }
     if (season == 'gravity') {
       _gravityReversed = false;
       board.flipVertical(frozenSet);
@@ -1423,6 +1456,96 @@ class TetrisGame extends FlameGame
     }
     particles.seasonBg.setSeason(null);
     activeSeason = null;
+  }
+
+  void _applyVoltageEffect() {
+    if (!_voltageActive) return;
+    final lockedCells = <(int, int)>[];
+    for (int r = 0; r < currentPiece.shape.length; r++) {
+      for (int c = 0; c < currentPiece.shape[r].length; c++) {
+        if (currentPiece.shape[r][c] != 0) {
+          lockedCells.add((currentPiece.y + r, currentPiece.x + c));
+        }
+      }
+    }
+    bool anyEffect = false;
+    for (final (lr, lc) in lockedCells) {
+      final lx = boardX + lc * kCell + kCell / 2;
+      final ly = boardY + lr * kCell + kCell / 2;
+      for (int dr = -1; dr <= 1; dr++) {
+        for (int dc = -1; dc <= 1; dc++) {
+          if (dr == 0 && dc == 0) continue;
+          final nr = lr + dr;
+          final nc = lc + dc;
+          if (nr < 0 || nr >= kRows || nc < 0 || nc >= kCols) continue;
+          if (lockedCells.contains((nr, nc))) continue;
+          final v = board.get(nr, nc);
+          if (v <= 0 || v > 268435456) continue;
+          final newV = v * 2;
+          board.set(nr, nc, newV);
+          _addScore(newV);
+          final tx = boardX + nc * kCell + kCell / 2;
+          final ty = boardY + nr * kCell + kCell / 2;
+          _voltageZaps.add(VoltageZap(cx: lx, cy: ly, tx: tx, ty: ty));
+          _voltageAffectedCells = [..._voltageAffectedCells, (nr, nc, 0.4)];
+          particles.spawnExplosion(tx, ty);
+          anyEffect = true;
+        }
+      }
+    }
+    if (anyEffect) {
+      screenShake = 0.3;
+      SoundManager.iceJoker();
+      final evoEvents = board.resolveMerges(
+        frozenSet, frozenCols, multiplierLines,
+        reverseGravity: _gravityReversed,
+      );
+      for (final e in evoEvents) {
+        _addScore(e.baseScore);
+      }
+      if (_gravityReversed) {
+        board.applyReverseGravity(frozenSet);
+      } else {
+        board.applyGravity(frozenSet);
+      }
+    }
+  }
+
+  void _doVolcanoShift() {
+    if (!_volcanoActive) return;
+    // Tüm hücreleri 1 satır yukarı kaydır (0. satır kaybolur)
+    for (int r = 0; r < kRows - 1; r++) {
+      for (int c = 0; c < kCols; c++) {
+        board.set(r, c, board.get(r + 1, c));
+      }
+    }
+    // En alt satıra kayalık doldur
+    for (int c = 0; c < kCols; c++) {
+      board.set(kRows - 1, c, kStone);
+    }
+    // Kayalık satır indekslerini güncelle (hepsi 1 yukarı çıktı)
+    _volcanoRockRows = _volcanoRockRows
+        .map((r) => r - 1)
+        .where((r) => r >= 0)
+        .toList();
+    _volcanoRockRows.add(kRows - 1);
+    // frozenSet pozisyonlarını güncelle
+    final newFrozen = <String, int>{};
+    frozenSet.forEach((k, v) {
+      final parts = k.split(',');
+      final nr = int.parse(parts[0]) - 1;
+      final c = int.parse(parts[1]);
+      if (nr >= 0) newFrozen['$nr,$c'] = v;
+    });
+    frozenSet
+      ..clear()
+      ..addAll(newFrozen);
+    screenShake = 0.25;
+    SoundManager.bomb();
+    // Son tursa mevsimi bitir — animasyon tamamlandıktan sonra
+    if (seasonTurnsLeft == 0) {
+      unawaited(_endSeason());
+    }
   }
 
   void _dropSeasonBomb() {
@@ -1622,12 +1745,13 @@ class TetrisGame extends FlameGame
       if (displayScore > score) displayScore = score.toDouble();
     }
 
-    // Çift Görme: sahte parça dağılma animasyonu
-    if (_fakeDissolving) {
-      _fakeDissolveTimer += dt;
-      if (_fakeDissolveTimer >= 0.4) {
-        _fakePiece = null;
-        _fakeDissolving = false;
+    // Evrim mevsimi — saniye bazlı döngü
+    if (activeSeason == 'evolution' && gameActive && !paused && _maxExplosion == null) {
+      _evolutionSeasonTimer += dt;
+      if (_evolutionSeasonTimer >= _evolutionSeasonInterval) {
+        _evolutionSeasonTimer = 0.0;
+        _evolutionSeasonInterval = 2.0 + _rng.nextDouble();
+        _triggerEvolutionSeasonCycle();
       }
     }
 
@@ -1686,11 +1810,63 @@ class TetrisGame extends FlameGame
         _evolutionActive = false;
         _evolutionTimer = 0.0;
         _evolutionTargets = [];
+        if (_evolutionSeasonQueue.isNotEmpty) {
+          final next = _evolutionSeasonQueue.removeAt(0);
+          _startEvolution(next.$1, next.$2);
+        }
       }
     }
 
-    if (!gameActive || paused || _maxExplosion != null || _evolutionActive)
+    // Voltaj mevsimi — elektrik animasyon sayacı
+    if (_voltageActive && gameActive && !paused) {
+      _voltageElectricTimer += dt;
+    }
+
+    // Zap animasyonları
+    for (final zap in _voltageZaps) {
+      zap.timer += dt;
+    }
+    _voltageZaps.removeWhere((z) => z.timer >= z.duration);
+
+    // Etkilenen hücre animasyonları
+    _voltageAffectedCells = [
+      for (final (r, c, t) in _voltageAffectedCells)
+        if (t - dt > 0) (r, c, t - dt),
+    ];
+
+    // Yanardağ temizlik animasyonu — mevsim bitince kayalıklar kalkar
+    if (_volcanoCleanup && gameActive && !paused) {
+      _volcanoCleanupTimer += dt;
+      if (_volcanoCleanupTimer >= 0.5) {
+        _volcanoCleanup = false;
+        _volcanoCleanupTimer = 0.0;
+        for (final r in _volcanoRockRows) {
+          if (r >= 0 && r < kRows) {
+            for (int c = 0; c < kCols; c++) {
+              if (board.get(r, c) == kStone) board.set(r, c, 0);
+            }
+          }
+        }
+        _volcanoRockRows = [];
+        board.applyGravity(frozenSet);
+      }
+    }
+
+    // Yanardağ animasyonu — board 1 satır yukarı kayar
+    if (_volcanoAnimating && gameActive && !paused && _maxExplosion == null) {
+      _volcanoAnimTimer += dt;
+      _volcanoSlideOffset = (_volcanoAnimTimer / 0.5).clamp(0.0, 1.0);
+      if (_volcanoAnimTimer >= 0.5) {
+        _volcanoAnimTimer = 0.0;
+        _volcanoSlideOffset = 0.0;
+        _volcanoAnimating = false;
+        _doVolcanoShift();
+      }
+    }
+
+    if (!gameActive || paused || _maxExplosion != null || _volcanoAnimating) {
       return;
+    }
 
     final targetY = currentPiece.y.toDouble();
     if (pieceVisualY < targetY) {
@@ -1716,14 +1892,6 @@ class TetrisGame extends FlameGame
         // Normal yerçekimi — aşağıya doğru hareket
         if (_valid(currentPiece.shape, currentPiece.x, currentPiece.y + 1)) {
           currentPiece.y++;
-          if (_doubleVisionActive && _fakePiece != null && !_fakeDissolving) {
-            if (_valid(_fakePiece!.shape, _fakePiece!.x, _fakePiece!.y + 1)) {
-              _fakePiece!.y++;
-            } else {
-              _fakeDissolving = true;
-              _fakeDissolveTimer = 0.0;
-            }
-          }
         } else {
           _lockPiece();
         }
@@ -1754,12 +1922,12 @@ class TetrisGame extends FlameGame
     _drawMultiplierLines(canvas);
     _drawBoard(canvas);
     _drawGhost(canvas);
-    _drawFakePiece(canvas);
     _drawPiece(canvas);
     _drawDarkness(canvas);
     particles.render(canvas, boardX, boardY, screenW: size.x, screenH: size.y);
     _drawUI(canvas);
     _drawOverlays(canvas);
+    _drawVoltageOverlay(canvas);
     _drawEvolutionOverlay(canvas);
     _maxExplosion?.render(canvas, size.x, size.y);
 
@@ -1935,11 +2103,24 @@ class TetrisGame extends FlameGame
     }
 
     // Hücreler + frozen overlay + max tile glow + pop cells
+    // Yanardağ animasyonu sırasında canvas clip + slide offset
+    final double slideY = _volcanoAnimating ? -_volcanoSlideOffset * kCell : 0.0;
+    if (_volcanoAnimating) {
+      canvas.save();
+      canvas.clipRect(
+        Rect.fromLTWH(boardX, boardY, kCols * kCell, kRows * kCell),
+      );
+    }
+
     for (int r = 0; r < kRows; r++) {
       for (int c = 0; c < kCols; c++) {
         final v = board.get(r, c);
+
+        // Yanardağ kayalık satırları — aşağıda stripe olarak çizilecek
+        if (_volcanoRockRows.contains(r)) continue;
+
         if (v == 0) {
-          // Boş hücre hafif dolgu
+          // Boş hücre hafif dolgu (slide yok, arka plan sabit)
           canvas.drawRect(
             Rect.fromLTWH(
               boardX + c * kCell + 1,
@@ -1962,7 +2143,7 @@ class TetrisGame extends FlameGame
         if (pop != null) {
           final scale = pop.t < 0.4 ? 1 + pop.t * 0.7 : 1 + (1 - pop.t) * 0.28;
           final cx = boardX + c * kCell + kCell / 2;
-          final cy = boardY + r * kCell + kCell / 2;
+          final cy = boardY + r * kCell + kCell / 2 + slideY;
           canvas.save();
           canvas.translate(cx, cy);
           canvas.scale(scale, scale);
@@ -1970,19 +2151,35 @@ class TetrisGame extends FlameGame
           _drawTile(
             canvas,
             boardX + c * kCell,
-            boardY + r * kCell,
+            boardY + r * kCell + slideY,
             v,
             1.0 - (pop.t * 0.25),
           );
           canvas.restore();
         } else {
-          _drawTile(canvas, boardX + c * kCell, boardY + r * kCell, v, 1.0);
+          _drawTile(canvas, boardX + c * kCell, boardY + r * kCell + slideY, v, 1.0);
         }
 
         // Frozen overlay
         if (frozenSet.containsKey('$r,$c')) _drawFrozenOverlay(canvas, c, r);
       }
     }
+
+    // Kayalık satırları — birleşik stripe
+    for (final rockRow in _volcanoRockRows) {
+      _drawVolcanoRockStripe(canvas, boardY + rockRow * kCell + slideY, rockRow);
+    }
+
+    // Gelen kayalık satır — animasyon sırasında alttan yükselir
+    if (_volcanoAnimating && _volcanoSlideOffset > 0) {
+      _drawVolcanoRockStripe(
+        canvas,
+        boardY + kRows * kCell + slideY,
+        kRows,
+      );
+    }
+
+    if (_volcanoAnimating) canvas.restore();
 
     // Bekleyen mevsim blokları — yoğun glow + yanıp sönen efekt
     for (final d in _pendingDrops) {
@@ -2148,6 +2345,69 @@ class TetrisGame extends FlameGame
   }
 
   // Frozen overlay — buz kristal efekti
+  void _drawVolcanoRockStripe(Canvas canvas, double y, int rowSeed) {
+    final x = boardX;
+    final w = kCols * kCell;
+    const h = kCell;
+    final seed = rowSeed.abs();
+
+    // 1. Koyu kahverengi taban
+    canvas.drawRect(
+      Rect.fromLTWH(x, y, w, h),
+      Paint()..color = const Color(0xFF3D1F0A),
+    );
+
+    // 2. Alt derinlik katmanı
+    canvas.drawRect(
+      Rect.fromLTWH(x, y + h * 0.45, w, h * 0.55),
+      Paint()..color = const Color(0xFF2A1005).withValues(alpha: 0.55),
+    );
+
+    // 3. Düzensiz taş lekeleri — deterministik oval şekiller
+    final stonePaint = Paint()
+      ..color = const Color(0xFF2A1005).withValues(alpha: 0.65);
+    for (int i = 0; i < 9; i++) {
+      final tx = x + ((i * 37 + seed * 13 + 5) % (w - 24).toInt()).toDouble();
+      final ty = y + 8.0 + ((i * 11 + seed * 7) % 18).toDouble();
+      final tw = 12.0 + (i * 7 + seed * 3) % 14;
+      final th = 5.0 + (i * 5 + seed * 2) % 7;
+      canvas.drawOval(Rect.fromLTWH(tx, ty, tw, th), stonePaint);
+    }
+
+    // 4. Pürüzlü üst kenar — kayalık dişleri
+    final jagPaint = Paint()
+      ..color = const Color(0xFF5D3A1A).withValues(alpha: 0.95);
+    const jagCount = 22;
+    final jagW = w / jagCount;
+    for (int i = 0; i < jagCount; i++) {
+      final tx = x + i * jagW;
+      final jagH = 3.0 + (i * 5 + seed * 3) % 7;
+      final path = Path()
+        ..moveTo(tx, y)
+        ..lineTo(tx + jagW / 2, y - jagH)
+        ..lineTo(tx + jagW, y)
+        ..close();
+      canvas.drawPath(path, jagPaint);
+    }
+
+    // 5. Lav parıltısı — üst kenarda turuncu çizgi
+    canvas.drawLine(
+      Offset(x, y),
+      Offset(x + w, y),
+      Paint()
+        ..color = const Color(0xFFFF4500)
+        ..strokeWidth = 2.5,
+    );
+
+    // 6. Lav glow — yumuşak blur
+    canvas.drawRect(
+      Rect.fromLTWH(x, y - 3, w, 7),
+      Paint()
+        ..color = const Color(0xFFFF4500).withValues(alpha: 0.32)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 5),
+    );
+  }
+
   void _drawFrozenOverlay(Canvas canvas, int c, int r) {
     _drawFrozenOverlayAt(canvas, boardX + c * kCell, boardY + r * kCell);
   }
@@ -2423,7 +2683,7 @@ class TetrisGame extends FlameGame
     }
 
     final glowPic = _glowCache.putIfAbsent(
-      color.value,
+      color.toARGB32(),
       () => _buildGlowPicture(color),
     );
     canvas.save();
@@ -2620,37 +2880,6 @@ class TetrisGame extends FlameGame
       }
     }
 
-    // Sahte parça ghost
-    if (_doubleVisionActive && _fakePiece != null && !_fakeDissolving) {
-      final fp = _fakePiece!;
-      int fgy = fp.y;
-      if (_gravityReversed) {
-        while (_valid(fp.shape, fp.x, fgy - 1)) {
-          fgy--;
-        }
-      } else {
-        while (_valid(fp.shape, fp.x, fgy + 1)) {
-          fgy++;
-        }
-      }
-      if (fgy != fp.y) {
-        for (int r = 0; r < fp.shape.length; r++) {
-          for (int c = 0; c < fp.shape[r].length; c++) {
-            final v = fp.shape[r][c];
-            if (v != 0) {
-              _drawTile(
-                canvas,
-                boardX + (fp.x + c) * kCell,
-                boardY + (fgy + r) * kCell,
-                v,
-                0.18,
-                ghost: true,
-              );
-            }
-          }
-        }
-      }
-    }
   }
 
   void _drawDarkness(Canvas canvas) {
@@ -2689,54 +2918,6 @@ class TetrisGame extends FlameGame
     }
   }
 
-  void _drawFakePiece(Canvas canvas) {
-    if (!_doubleVisionActive || _fakePiece == null || !gameActive) return;
-    final fp = _fakePiece!;
-    final dissolveRatio = _fakeDissolving
-        ? (_fakeDissolveTimer / 0.4).clamp(0.0, 1.0)
-        : 0.0;
-    final alpha = (1.0 - dissolveRatio).clamp(0.0, 1.0);
-
-    for (int r = 0; r < fp.shape.length; r++) {
-      for (int c = 0; c < fp.shape[r].length; c++) {
-        final v = fp.shape[r][c];
-        if (v == 0) continue;
-
-        // Dağılma efekti: her hücre rastgele küçük offset
-        final ox = _fakeDissolving
-            ? (_rng.nextDouble() - 0.5) * 10 * dissolveRatio
-            : 0.0;
-        final oy = _fakeDissolving
-            ? (_rng.nextDouble() - 0.5) * 10 * dissolveRatio
-            : 0.0;
-        final px = boardX + (fp.x + c) * kCell + ox;
-        final py = boardY + (fp.y + r) * kCell + oy;
-
-        // Ana blok çizimi (aynı görünüm, sadece alpha değişir)
-        _drawTile(canvas, px, py, v, alpha);
-
-        // Dağılırken kırmızıya dönen overlay
-        if (_fakeDissolving && dissolveRatio > 0) {
-          const pad = 2.0;
-          canvas.drawRRect(
-            RRect.fromRectAndRadius(
-              Rect.fromLTWH(
-                px + pad,
-                py + pad,
-                kCell - pad * 2,
-                kCell - pad * 2,
-              ),
-              const Radius.circular(14),
-            ),
-            Paint()
-              ..color = Colors.red.withValues(
-                alpha: dissolveRatio * 0.55 * alpha,
-              ),
-          );
-        }
-      }
-    }
-  }
 
   String _formatScore(int score) {
     if (score >= 1000000000) {
@@ -3052,6 +3233,102 @@ class TetrisGame extends FlameGame
     );
   }
 
+  void _drawVoltageZapLine(Canvas canvas, double x1, double y1, double x2, double y2, double alpha) {
+    final dx = x2 - x1;
+    final dy = y2 - y1;
+    final path = Path()..moveTo(x1, y1);
+    const segments = 4;
+    for (int i = 1; i < segments; i++) {
+      final t = i / segments;
+      final px = x1 + dx * t + (_rng.nextDouble() - 0.5) * 14;
+      final py = y1 + dy * t + (_rng.nextDouble() - 0.5) * 14;
+      path.lineTo(px, py);
+    }
+    path.lineTo(x2, y2);
+    canvas.drawPath(path,
+      Paint()
+        ..color = const Color(0xFF00BFFF).withValues(alpha: alpha * 0.5)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 6
+        ..strokeCap = StrokeCap.round
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4));
+    canvas.drawPath(path,
+      Paint()
+        ..color = const Color(0xFFFFFF00).withValues(alpha: alpha)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2.5
+        ..strokeCap = StrokeCap.round);
+  }
+
+  void _drawVoltageOverlay(Canvas canvas) {
+    if (!_voltageActive && _voltageZaps.isEmpty && _voltageAffectedCells.isEmpty) return;
+
+    // ── 1. Düşen parça elektrik efekti ──────────────────────────
+    if (_voltageActive && gameActive && !paused) {
+      final pulse = math.sin(_voltageElectricTimer * math.pi * 6) * 0.15 + 0.85;
+      for (int r = 0; r < currentPiece.shape.length; r++) {
+        for (int c = 0; c < currentPiece.shape[r].length; c++) {
+          if (currentPiece.shape[r][c] == 0) continue;
+          final cx = boardX + (currentPiece.x + c) * kCell + kCell / 2;
+          final cy = boardY + pieceVisualY * kCell + r * kCell + kCell / 2;
+          canvas.drawRRect(
+            RRect.fromRectAndRadius(
+              Rect.fromCenter(center: Offset(cx, cy), width: kCell - 2, height: kCell - 2),
+              const Radius.circular(6),
+            ),
+            Paint()
+              ..color = const Color(0xFF00BFFF).withValues(alpha: pulse * 0.35)
+              ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8),
+          );
+          for (int i = 0; i < 2; i++) {
+            final angle = _rng.nextDouble() * math.pi * 2;
+            final len = 8.0 + _rng.nextDouble() * 14.0;
+            final sx = cx + math.cos(angle) * (kCell * 0.45);
+            final sy = cy + math.sin(angle) * (kCell * 0.45);
+            canvas.drawLine(
+              Offset(sx, sy),
+              Offset(sx + math.cos(angle) * len, sy + math.sin(angle) * len),
+              Paint()
+                ..color = (_rng.nextBool() ? const Color(0xFF00BFFF) : const Color(0xFFFFFF00))
+                    .withValues(alpha: 0.6 + _rng.nextDouble() * 0.4)
+                ..strokeWidth = 1.5 + _rng.nextDouble(),
+            );
+          }
+        }
+      }
+    }
+
+    // ── 2. Şimşek çizgileri (zap) ────────────────────────────────
+    for (final zap in _voltageZaps) {
+      final alpha = (1.0 - zap.timer / zap.duration).clamp(0.0, 1.0);
+      _drawVoltageZapLine(canvas, zap.cx, zap.cy, zap.tx, zap.ty, alpha);
+    }
+
+    // ── 3. Etkilenen hücre parlaması ─────────────────────────────
+    for (final (r, c, timer) in _voltageAffectedCells) {
+      final alpha = (timer / 0.4).clamp(0.0, 0.6);
+      final cx = boardX + c * kCell + kCell / 2;
+      final cy = boardY + r * kCell + kCell / 2;
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromCenter(center: Offset(cx, cy), width: kCell.toDouble(), height: kCell.toDouble()),
+          const Radius.circular(6),
+        ),
+        Paint()..color = const Color(0xFFFFFF00).withValues(alpha: alpha * 0.5),
+      );
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromCenter(center: Offset(cx, cy), width: kCell + 4.0, height: kCell + 4.0),
+          const Radius.circular(8),
+        ),
+        Paint()
+          ..color = const Color(0xFF00BFFF).withValues(alpha: alpha * 0.7)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 2.5,
+      );
+    }
+  }
+
   void _drawEvolutionOverlay(Canvas canvas) {
     if (!_evolutionActive) return;
     final t = _evolutionTimer;
@@ -3111,7 +3388,14 @@ class TetrisGame extends FlameGame
 
     // Ana metin (0→2.4s)
     if (t < 2.4) {
-      final textAlpha = (t < 0.3 ? t / 0.3 : 1.0).clamp(0.0, 1.0);
+      final rawAlpha = (t < 0.3 ? t / 0.3 : 1.0).clamp(0.0, 1.0);
+      // Mevsim döngüsünde daha küçük ve saydam
+      final textAlpha = _evolutionIsSeasonCycle
+          ? (rawAlpha * 0.6).clamp(0.0, 0.6)
+          : rawAlpha;
+      final mainFontSize = _evolutionIsSeasonCycle ? 28.0 : 40.0;
+      final subFontSize = _evolutionIsSeasonCycle ? 14.0 : 20.0;
+      final subOffsetY = _evolutionIsSeasonCycle ? 22.0 : 28.0;
 
       // Evrilen değerleri kısa string'e çevir
       String valStr(int v) => v >= 1000 ? '${v ~/ 1000}K' : '$v';
@@ -3137,6 +3421,7 @@ class TetrisGame extends FlameGame
         cx,
         cy - 22,
         textAlpha,
+        fontSize: mainFontSize,
       );
 
       // Alt satır: localized evrim metni
@@ -3144,8 +3429,8 @@ class TetrisGame extends FlameGame
         canvas,
         evolvingText,
         cx,
-        cy + 28,
-        20,
+        cy + subOffsetY,
+        subFontSize,
         Colors.white.withValues(alpha: textAlpha * 0.92),
         bold: true,
       );
@@ -3157,8 +3442,9 @@ class TetrisGame extends FlameGame
     String text,
     double cx,
     double cy,
-    double alpha,
-  ) {
+    double alpha, {
+    double fontSize = 40,
+  }) {
     final shadows = <Shadow>[
       Shadow(
         color: Colors.black.withValues(alpha: 0.9),
@@ -3179,7 +3465,7 @@ class TetrisGame extends FlameGame
         text: text,
         style: GoogleFonts.poppins(
           textStyle: TextStyle(
-            fontSize: 40,
+            fontSize: fontSize,
             fontWeight: FontWeight.w900,
             color: const Color(0xFFFF4444).withValues(alpha: alpha),
             shadows: shadows,
@@ -3612,4 +3898,12 @@ class _PendingSeasonDrop {
   double timer;
   _PendingSeasonDrop({required this.row, required this.col, required this.type})
     : timer = 0.60;
+}
+
+class VoltageZap {
+  final double cx, cy;
+  final double tx, ty;
+  double timer = 0.0;
+  final double duration = 0.3;
+  VoltageZap({required this.cx, required this.cy, required this.tx, required this.ty});
 }
