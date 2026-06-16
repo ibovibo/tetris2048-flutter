@@ -115,7 +115,7 @@ class Board {
           final v = cells[r][c];
           if (v > 0 &&
               v == cells[r + 1][c] &&
-              v < 536870912 &&
+              v < 8589934592 &&
               !frozenCols.containsKey(c) &&
               !frozenSet.containsKey('$r,$c') &&
               !frozenSet.containsKey('${r + 1},$c') &&
@@ -149,7 +149,7 @@ class Board {
           final v = cells[r][c];
           if (v > 0 &&
               v == cells[r][c + 1] &&
-              v < 536870912 &&
+              v < 8589934592 &&
               !frozenCols.containsKey(c) &&
               !frozenCols.containsKey(c + 1) &&
               !frozenSet.containsKey('$r,$c') &&

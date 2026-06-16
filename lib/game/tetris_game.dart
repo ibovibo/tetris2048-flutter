@@ -110,6 +110,7 @@ class TetrisGame extends FlameGame
 
   double boardX = 0;
   double boardY = 0;
+  double uiScale = 1.0;
   MaxExplosion? _maxExplosion;
   final Map<int, ui.Picture> _glowCache = {};
   final Map<String, ui.Image> _blockImages = {};
@@ -198,6 +199,10 @@ class TetrisGame extends FlameGame
       '134217728': 'blokk_134217728',
       '268435456': 'blokk_268435456',
       '536870912': 'blokk_536870912',
+      '1073741824': 'blokk_1073741824',
+      '2147483648': 'blokk_2147483648',
+      '4294967296': 'blokk_4294967296',
+      '8589934592': 'blokk_8589934592',
       'joker': 'blokk_joker',
       'bomb': 'blokk_bomba',
       'ice': 'blokk_buz',
@@ -218,6 +223,8 @@ class TetrisGame extends FlameGame
       } catch (_) {}
     }
 
+    // Görseller yüklendi — gerçek görsel oranlarıyla layout'u yeniden hesapla.
+    _recalcLayout();
     _initGame();
   }
 
@@ -254,8 +261,35 @@ class TetrisGame extends FlameGame
   @override
   void onGameResize(Vector2 size) {
     super.onGameResize(size);
-    boardX = (size.x - kCols * kCell) / 2;
-    boardY = (size.y - kRows * kCell) / 2;
+    _recalcLayout();
+  }
+
+  // Board + üst/alt UI'nin ekrana sığması için ölçek hesaplar.
+  // Ekran, tasarımın gerektirdiği alandan küçükse (örn. kısa pencere/cihaz),
+  // tüm board+UI katmanı oranlı şekilde küçültülür — asla büyütülmez,
+  // böylece zaten sığan ekranların görünümü değişmez.
+  void _recalcLayout() {
+    final designW = kCols * kCell;
+    final designBoardH = kRows * kCell;
+    final sw0 = designW * 0.44;
+    final scoreBoxH = _scoreBoxImage != null
+        ? sw0 * (_scoreBoxImage!.height / _scoreBoxImage!.width)
+        : 52.0;
+    final topMargin = max(scoreBoxH + 8, 56.0); // skor kutusu + pause butonu
+    final barH = _yuzdeBarImage != null
+        ? designW * (_yuzdeBarImage!.height / _yuzdeBarImage!.width)
+        : 0.0;
+    final bottomMargin = barH + 4;
+    final designH = topMargin + designBoardH + bottomMargin;
+
+    uiScale = (size.x > 0 && size.y > 0)
+        ? min(1.0, min(size.x / designW, size.y / designH))
+        : 1.0;
+
+    final vw = size.x / uiScale;
+    final vh = size.y / uiScale;
+    boardX = (vw - designW) / 2;
+    boardY = (vh - designH) / 2 + topMargin;
   }
 
   void _initGame() {
@@ -434,7 +468,9 @@ class TetrisGame extends FlameGame
   @override
   void onTapDown(TapDownInfo info) async {
     if (_volcanoAnimating) return;
-    final tap = info.eventPosition.global;
+    // render() içinde uygulanan uiScale ile eşleşmesi için dokunma noktası
+    // board/UI'nin kullandığı sanal koordinat sistemine çevrilir.
+    final tap = info.eventPosition.global / uiScale;
     final bw = kCols * kCell;
     final bh = kRows * kCell;
     final sh = _scoreBoxImage != null
@@ -442,8 +478,7 @@ class TetrisGame extends FlameGame
         : 52.0;
 
     if (paused && gameActive) {
-      final pos = info.eventPosition.global;
-      final p = Offset(pos.x, pos.y);
+      final p = Offset(tap.x, tap.y);
       if (_pauseResumeRect?.contains(p) == true) {
         paused = false;
         return;
@@ -498,12 +533,11 @@ class TetrisGame extends FlameGame
     }
 
     if (!gameActive) {
-      final pos = info.eventPosition.global;
-      if (_gameOverRestartRect?.contains(Offset(pos.x, pos.y)) == true) {
+      if (_gameOverRestartRect?.contains(Offset(tap.x, tap.y)) == true) {
         _initGame();
         return;
       }
-      if (_gameOverMenuRect?.contains(Offset(pos.x, pos.y)) == true) {
+      if (_gameOverMenuRect?.contains(Offset(tap.x, tap.y)) == true) {
         onPause?.call();
         return;
       }
@@ -1262,6 +1296,10 @@ class TetrisGame extends FlameGame
       134217728: 87.0,
       268435456: 93.0,
       536870912: 99.0,
+      1073741824: 63.0,
+      2147483648: 69.0,
+      4294967296: 75.0,
+      8589934592: 81.0,
     };
     if (table.containsKey(value)) return table[value]!;
     if (value > 536870912) {
@@ -1333,17 +1371,27 @@ class TetrisGame extends FlameGame
     debugPrint(
       '_startRandomSeason: activeSeason=$activeSeason, pendingIdx=$_pendingSeasonIdx',
     );
-    seasonTurnsLeft = activeSeason == 'mirror' ? 5
-      : activeSeason == 'bomb' ? 6
-      : activeSeason == 'ice' ? 6
-      : activeSeason == 'gravity' ? 5
-      : activeSeason == 'chaos' ? 6
-      : activeSeason == 'mystery' ? 5
-      : activeSeason == 'darkness' ? 5
-      : activeSeason == 'evolution' ? 5
-      : activeSeason == 'volcano' ? 3
-      : activeSeason == 'voltage' ? 6
-      : 10;
+    seasonTurnsLeft = activeSeason == 'mirror'
+        ? 5
+        : activeSeason == 'bomb'
+        ? 6
+        : activeSeason == 'ice'
+        ? 6
+        : activeSeason == 'gravity'
+        ? 5
+        : activeSeason == 'chaos'
+        ? 6
+        : activeSeason == 'mystery'
+        ? 5
+        : activeSeason == 'darkness'
+        ? 5
+        : activeSeason == 'evolution'
+        ? 5
+        : activeSeason == 'volcano'
+        ? 3
+        : activeSeason == 'voltage'
+        ? 6
+        : 10;
     _seasonBombTimer = 2.0;
 
     if (activeSeason == 'gravity') {
@@ -1924,16 +1972,28 @@ class TetrisGame extends FlameGame
       debugPrint('_drawBackground HATA: $e');
     }
 
+    // Board + UI katmanı — ekrana sığması için uiScale ile ölçeklenir.
+    canvas.save();
+    canvas.scale(uiScale);
     _drawMultiplierLines(canvas);
     _drawBoard(canvas);
     _drawGhost(canvas);
     _drawPiece(canvas);
     _drawDarkness(canvas);
-    particles.render(canvas, boardX, boardY, screenW: size.x, screenH: size.y);
+    particles.render(
+      canvas,
+      boardX,
+      boardY,
+      screenW: size.x / uiScale,
+      screenH: size.y / uiScale,
+    );
     _drawUI(canvas);
     _drawOverlays(canvas);
     _drawVoltageOverlay(canvas);
     _drawEvolutionOverlay(canvas);
+    canvas.restore();
+
+    // Tam ekran efektler — gerçek ekran boyutuyla, ölçeklenmeden.
     _maxExplosion?.render(canvas, size.x, size.y);
 
     canvas.restore();
@@ -2646,6 +2706,14 @@ class TetrisGame extends FlameGame
       imgKey = '268435456';
     } else if (val == 536870912) {
       imgKey = '536870912';
+    } else if (val == 1073741824) {
+      imgKey = '1073741824';
+    } else if (val == 2147483648) {
+      imgKey = '2147483648';
+    } else if (val == 4294967296) {
+      imgKey = '4294967296';
+    } else if (val == 8589934592) {
+      imgKey = '8589934592';
     } else if (val >= 16384) {
       imgKey = '16384';
     } else if (val == kJoker) {
@@ -3294,8 +3362,9 @@ class TetrisGame extends FlameGame
   void _drawVoltageOverlay(Canvas canvas) {
     if (!_voltageActive &&
         _voltageZaps.isEmpty &&
-        _voltageAffectedCells.isEmpty)
+        _voltageAffectedCells.isEmpty) {
       return;
+    }
 
     // ── 1. Düşen parça elektrik efekti ──────────────────────────
     if (_voltageActive && gameActive && !paused) {
@@ -3404,7 +3473,7 @@ class TetrisGame extends FlameGame
   void _drawEvolutionOverlay(Canvas canvas) {
     if (!_evolutionActive) return;
     final t = _evolutionTimer;
-    final sw = size.x, sh = size.y;
+    final sw = size.x / uiScale, sh = size.y / uiScale;
     final cx = sw / 2, cy = sh / 2;
 
     // Hedef blok vurgusu için alpha — overlay yok, board görünür kalır
@@ -3610,18 +3679,19 @@ class TetrisGame extends FlameGame
 
   void _drawOverlays(Canvas canvas) {
     final bw = kCols * kCell, bh = kRows * kCell;
+    final vw = size.x / uiScale, vh = size.y / uiScale;
 
     // Pause
     if (paused && gameActive && _pauseMenuImage != null) {
       canvas.drawRect(
-        Rect.fromLTWH(0, 0, size.x, size.y),
+        Rect.fromLTWH(0, 0, vw, vh),
         Paint()..color = Colors.black.withValues(alpha: 0.75),
       );
 
-      final pw = size.x * 0.80;
+      final pw = vw * 0.80;
       final ph = pw * (_pauseMenuImage!.height / _pauseMenuImage!.width);
-      final px = (size.x - pw) / 2;
-      final py = (size.y - ph) / 2;
+      final px = (vw - pw) / 2;
+      final py = (vh - ph) / 2;
 
       canvas.drawImageRect(
         _pauseMenuImage!,
@@ -3860,15 +3930,15 @@ class TetrisGame extends FlameGame
     if (!gameActive && _gameOverImage != null) {
       // Yarı saydam karartma
       canvas.drawRect(
-        Rect.fromLTWH(0, 0, size.x, size.y),
+        Rect.fromLTWH(0, 0, vw, vh),
         Paint()..color = Colors.black.withValues(alpha: 0.75),
       );
 
       // Game over görseli — ekran ortasında
       final gw = kCols * kCell * 1.1;
       final gh = gw * (_gameOverImage!.height / _gameOverImage!.width);
-      final gx = (size.x - gw) / 2;
-      final gy = (size.y - gh) / 2;
+      final gx = (vw - gw) / 2;
+      final gy = (vh - gh) / 2;
 
       canvas.drawImageRect(
         _gameOverImage!,
