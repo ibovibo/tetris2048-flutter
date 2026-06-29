@@ -11,6 +11,8 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../l10n.dart';
+import '../profile_manager.dart';
+import '../stats_manager.dart';
 import 'board.dart';
 import 'piece.dart';
 import 'constants.dart';
@@ -40,8 +42,11 @@ class TetrisGame extends FlameGame
   double displayScore = 0;
   int best = 0;
   int bestCombo = 1;
+  int _currentGameBestCombo = 1;
   int level = 1;
   int combo = 1;
+  int _lastXpGained = 0;
+  double _xpCountTimer = 0.0;
   double _meter = 0.0;
   double _meterDisplay = 0.0; // görsel meter — gerçek meter'a smooth yaklaşır
   int _pendingSpecialCount = 0;
@@ -67,6 +72,7 @@ class TetrisGame extends FlameGame
   double animTime = 0;
   double screenShake = 0;
   int maxTile = 0;
+  int _mergesThisGame = 0;
 
   // Mevsim sistemi
   String? activeSeason; // 'bomb', 'speed', 'ice', 'gravity', 'chaos'
@@ -316,6 +322,10 @@ class TetrisGame extends FlameGame
     screenShake = 0;
     seenMilestones = {};
     maxTile = 0;
+    _mergesThisGame = 0;
+    _currentGameBestCombo = 1;
+    _lastXpGained = 0;
+    _xpCountTimer = 0.0;
     activeSeason = null;
     _lastSeason = null;
     _secondLastSeason = null;
@@ -1038,6 +1048,8 @@ class TetrisGame extends FlameGame
         final finalScore = evt.baseScore * combo;
         _addScore(finalScore);
         SoundManager.merge(evt.val);
+        _mergesThisGame++;
+        if (evt.val > maxTile) maxTile = evt.val;
 
         _checkMilestone(evt.val);
         meterGain += _getMergeFill(evt.val);
@@ -1233,6 +1245,7 @@ class TetrisGame extends FlameGame
 
   void _incrementCombo() {
     combo++;
+    if (combo > _currentGameBestCombo) _currentGameBestCombo = combo;
     if (combo > bestCombo) {
       bestCombo = combo;
       _saveBest();
@@ -1669,6 +1682,21 @@ class TetrisGame extends FlameGame
       best = score;
       _saveBest();
     }
+
+    final int tileBonus = maxTile >= 2
+        ? (log(maxTile.toDouble()) / log(2) * 100).round()
+        : 0;
+    _lastXpGained = (score / 1000).round()
+        + _currentGameBestCombo * 50
+        + tileBonus;
+
+    await ProfileManager.addXP(_lastXpGained);
+    await StatsManager.recordGame(
+      score: score,
+      maxTile: maxTile,
+      mergesThisGame: _mergesThisGame,
+    );
+    _xpCountTimer = 0.0;
   }
 
   @override
@@ -1786,10 +1814,15 @@ class TetrisGame extends FlameGame
       if (streakTimer <= 0) streak = 0;
     }
 
+    if (!gameActive && _lastXpGained > 0 && _xpCountTimer < 3.5) {
+      _xpCountTimer += dt;
+    }
+
     // Skor animasyonu
     if (displayScore < score) {
       final diff = score - displayScore;
-      displayScore += (diff * 0.15).clamp(1, 99999);
+      final maxStep = math.max(99999.0, score * 0.02);
+      displayScore += (diff * 0.15).clamp(1, maxStep);
       if (displayScore > score) displayScore = score.toDouble();
     }
 
@@ -3952,8 +3985,10 @@ class TetrisGame extends FlameGame
         Paint(),
       );
 
+      final goT = (_xpCountTimer / 3.5).clamp(0.0, 1.0);
+      final goProgress = 1.0 - (1.0 - goT) * (1.0 - goT);
       final scoreStr =
-          '${L10n.t('game_over_score')}: ${_formatScore(displayScore.toInt())}';
+          '${L10n.t('game_over_score')}: ${_formatScore((score * goProgress).round())}';
       final extraChars = (scoreStr.length - 11).clamp(0, 20);
       final baseScoreH = gh * 0.12;
       final scoreFontScale = 1.0 - extraChars * 0.05;
@@ -3980,6 +4015,85 @@ class TetrisGame extends FlameGame
         const Color(0xFFFFD700),
         bold: true,
       );
+
+      // Kazanılan XP — sol üst köşe, 45° sola eğimli
+      if (_lastXpGained > 0) {
+        final xpCx = gx + gw * 0.07;
+        final xpCy = gy + gh * 0.22;
+        final xpFontSize = gh * 0.060;
+        final t = (_xpCountTimer / 3.5).clamp(0.0, 1.0);
+        final progress = 1.0 - (1.0 - t) * (1.0 - t); // ease-out quad
+        final xpShown = (_lastXpGained * progress).round();
+        final xpText = '+${_formatScore(xpShown)} XP';
+
+        canvas.save();
+        canvas.translate(xpCx, xpCy);
+        canvas.rotate(-50 * pi / 180);
+
+        // Layout için önce ölç
+        final xpTp = TextPainter(
+          text: TextSpan(
+            text: xpText,
+            style: TextStyle(
+              fontSize: xpFontSize,
+              fontWeight: FontWeight.w900,
+              color: const Color(0xFFFFD700),
+            ),
+          ),
+          textDirection: TextDirection.ltr,
+          textAlign: TextAlign.center,
+        )..layout();
+
+        final padH = xpFontSize * 0.30;
+        final padV = xpFontSize * 0.18;
+        final bgW = xpTp.width + padH * 2;
+        final bgH = xpTp.height + padV * 2;
+        final bgRect = Rect.fromCenter(center: Offset.zero, width: bgW, height: bgH);
+        final rr = RRect.fromRectAndRadius(bgRect, Radius.circular(bgH * 0.4));
+
+        // Dış glow
+        canvas.drawRRect(
+          rr,
+          Paint()
+            ..color = const Color(0xFFFFD700).withValues(alpha: 0.35)
+            ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 10),
+        );
+
+        // Koyu arka plan
+        canvas.drawRRect(
+          rr,
+          Paint()..color = const Color(0xFF1A1000).withValues(alpha: 0.82),
+        );
+
+        // Altın kenarlık
+        canvas.drawRRect(
+          rr,
+          Paint()
+            ..color = const Color(0xFFFFD700)
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 1.8,
+        );
+
+        // Metin (outline + fill)
+        final outlineTp = TextPainter(
+          text: TextSpan(
+            text: xpText,
+            style: TextStyle(
+              fontSize: xpFontSize,
+              fontWeight: FontWeight.w900,
+              foreground: Paint()
+                ..style = PaintingStyle.stroke
+                ..strokeWidth = xpFontSize * 0.08
+                ..color = Colors.black.withValues(alpha: 0.8),
+            ),
+          ),
+          textDirection: TextDirection.ltr,
+        )..layout();
+        outlineTp.paint(canvas, Offset(-xpTp.width / 2, -xpTp.height / 2));
+        xpTp.paint(canvas, Offset(-xpTp.width / 2, -xpTp.height / 2));
+
+        canvas.restore();
+      }
 
       // Sol turuncu buton — restart
       final restartText = L10n.t('restart');
@@ -4020,6 +4134,7 @@ class TetrisGame extends FlameGame
       // Tıklanabilir alanlar
       _gameOverRestartRect = restartRect;
       _gameOverMenuRect = menuRect;
+
     }
   }
 }

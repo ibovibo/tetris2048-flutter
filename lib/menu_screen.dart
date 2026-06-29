@@ -5,10 +5,14 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'avatar_manager.dart';
 import 'game/sound_manager.dart';
 import 'game/tetris_game.dart';
 import 'l10n.dart';
+import 'profile_manager.dart';
+import 'screens/profile_edit_screen.dart';
 import 'settings_screen.dart';
+import 'widgets/profile_widget.dart';
 
 class MenuScreen extends StatefulWidget {
   const MenuScreen({super.key});
@@ -165,6 +169,36 @@ class _MenuScreenState extends State<MenuScreen>
               child: Image.asset(
                 'assets/images/newmenu.png',
                 fit: BoxFit.cover,
+              ),
+            ),
+            // Profil widget'ı — sol üst köşe
+            Positioned(
+              top: h * 0.025,
+              left: w * 0.03,
+              width: w * 0.454,
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => const ProfileEditScreen(),
+                    ),
+                  ).then((_) => setState(() {}));
+                },
+                child: ProfileWidget(
+                  userName: ProfileManager.userName,
+                  level: ProfileManager.level,
+                  xpProgress: ProfileManager.xpProgress,
+                  avatarPath: AvatarManager.avatarPath,
+                  avatarIndex: AvatarManager.avatarIndex,
+                  onEditAvatar: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => const ProfileEditScreen(),
+                      ),
+                    ).then((_) => setState(() {}));
+                  },
+                ),
               ),
             ),
             // En iyi skor paneli
