@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'avatar_manager.dart';
 import 'game/sound_manager.dart';
+import 'screens/achievements_screen.dart';
 import 'game/tetris_game.dart';
 import 'l10n.dart';
 import 'profile_manager.dart';
@@ -144,7 +145,9 @@ class _MenuScreenState extends State<MenuScreen>
       case 0:
         return const _ComingSoonPage();
       case 1:
-        return const _ComingSoonPage();
+        return AchievementsScreen(
+          onBack: () => setState(() => _selectedTabIndex = 2),
+        );
       case 2:
         return _buildPlayPage();
       case 3:
@@ -345,13 +348,11 @@ class _MenuScreenState extends State<MenuScreen>
               child: Padding(
                 padding: EdgeInsets.only(
                   bottom: navHeight * 0.07,
-                  left: 2,
+                  left: index == 0 ? 2 + itemWidth * 0.04 : 2,
                   right: 2,
                 ),
                 child: SizedBox(
-                  width: itemWidth - 4,
-                  // Sabit yükseklik (taban font boyutuna göre) — lengthScale
-                  // küçülse de kutu boyu değişmesin, yazı aşağı kaymasın.
+                  width: itemWidth - 4 - (index == 0 ? itemWidth * 0.04 : 0),
                   height: baseFontSize * 1.3,
                   child: FittedBox(
                     fit: BoxFit.scaleDown,

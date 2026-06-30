@@ -11,6 +11,7 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../l10n.dart';
+import '../achievement_manager.dart';
 import '../profile_manager.dart';
 import '../stats_manager.dart';
 import 'board.dart';
@@ -1380,6 +1381,16 @@ class TetrisGame extends FlameGame
     activeSeason = kSeasons[_pendingSeasonIdx].key;
     _secondLastSeason = _lastSeason;
     _lastSeason = activeSeason;
+    // Başarım mevsim sayacı
+    const _seasonAchKeyMap = {
+      'bomb': 'bomba', 'ice': 'buz', 'gravity': 'yercekimi',
+      'chaos': 'kaos', 'mystery': 'gizem', 'darkness': 'karanlik',
+      'evolution': 'evrim', 'voltage': 'voltaj', 'volcano': 'yanardag',
+    };
+    final achSeasonKey = _seasonAchKeyMap[activeSeason];
+    if (achSeasonKey != null) {
+      unawaited(AchievementManager.incrementSeasonCount(achSeasonKey));
+    }
     debugPrint('=== activeSeason: $activeSeason ===');
     debugPrint(
       '_startRandomSeason: activeSeason=$activeSeason, pendingIdx=$_pendingSeasonIdx',
@@ -1695,6 +1706,12 @@ class TetrisGame extends FlameGame
       score: score,
       maxTile: maxTile,
       mergesThisGame: _mergesThisGame,
+    );
+    await AchievementManager.syncAfterGame(
+      score: score,
+      maxTile: maxTile,
+      gamesPlayed: StatsManager.gamesPlayed,
+      level: ProfileManager.level,
     );
     _xpCountTimer = 0.0;
   }

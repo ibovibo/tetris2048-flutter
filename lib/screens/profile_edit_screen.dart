@@ -431,7 +431,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
   // Her 5 karakteri aşan rakam için font boyutunu %5 küçült
   double _scaledStatFontSize(String text, double base) {
     final extra = (text.length - 5).clamp(0, 20);
-    return base * pow(0.95, extra);
+    return base * pow(0.93, extra);
   }
 
   @override
