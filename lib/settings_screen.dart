@@ -6,7 +6,8 @@ import 'l10n.dart';
 
 class SettingsScreen extends StatefulWidget {
   final VoidCallback? onBack;
-  const SettingsScreen({super.key, this.onBack});
+  final VoidCallback? onLanguageChanged;
+  const SettingsScreen({super.key, this.onBack, this.onLanguageChanged});
 
   @override
   State<SettingsScreen> createState() => _SettingsScreenState();
@@ -267,9 +268,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
           // Dil seçici (backdrop'ın üstünde, z-order'da sonra geliyor)
           Positioned(
-            bottom: h * 0.275,
+            bottom: h * 0.280,
             left: w * 0.43,
-            right: w * 0.12,
+            right: w * 0.17,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               mainAxisSize: MainAxisSize.min,
@@ -307,6 +308,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                   await L10n.setLang(lang.$1);
                                   if (!mounted) return;
                                   setState(() => _langDropdownOpen = false);
+                                  widget.onLanguageChanged?.call();
                                 },
                                 child: Container(
                                   color: isSelected
@@ -358,11 +360,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   behavior: HitTestBehavior.opaque,
                   onTap: () => setState(() => _langDropdownOpen = !_langDropdownOpen),
                   child: Container(
-                    height: h * 0.055,
-                    padding: EdgeInsets.symmetric(horizontal: w * 0.04),
+                    height: h * 0.048,
+                    padding: EdgeInsets.symmetric(horizontal: w * 0.032),
                     decoration: BoxDecoration(
                       color: Colors.white.withValues(alpha: 0.93),
-                      borderRadius: BorderRadius.circular(14),
+                      borderRadius: BorderRadius.circular(7),
                       boxShadow: const [
                         BoxShadow(
                           color: Colors.black26,
@@ -378,7 +380,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             _currentLangDisplay,
                             textScaler: TextScaler.noScaling,
                             style: TextStyle(
-                              fontSize: h * 0.022,
+                              fontSize: h * 0.019,
                               fontWeight: FontWeight.w700,
                               color: const Color(0xFF333333),
                             ),
@@ -390,7 +392,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           child: Icon(
                             Icons.keyboard_arrow_up_rounded,
                             color: const Color(0xFF2B5FD4),
-                            size: h * 0.03,
+                            size: h * 0.026,
                           ),
                         ),
                       ],

@@ -1382,12 +1382,12 @@ class TetrisGame extends FlameGame
     _secondLastSeason = _lastSeason;
     _lastSeason = activeSeason;
     // Başarım mevsim sayacı
-    const _seasonAchKeyMap = {
+    const seasonAchKeyMap = {
       'bomb': 'bomba', 'ice': 'buz', 'gravity': 'yercekimi',
       'chaos': 'kaos', 'mystery': 'gizem', 'darkness': 'karanlik',
       'evolution': 'evrim', 'voltage': 'voltaj', 'volcano': 'yanardag',
     };
-    final achSeasonKey = _seasonAchKeyMap[activeSeason];
+    final achSeasonKey = seasonAchKeyMap[activeSeason];
     if (achSeasonKey != null) {
       unawaited(AchievementManager.incrementSeasonCount(achSeasonKey));
     }
@@ -2803,7 +2803,12 @@ class TetrisGame extends FlameGame
         kCell - pad * 2,
       );
       canvas.save();
-      canvas.clipRRect(RRect.fromRectAndRadius(dst, const Radius.circular(6)));
+      canvas.clipRRect(
+        RRect.fromRectAndRadius(
+          dst,
+          Radius.circular(val == kX2 ? 9 : 6),
+        ),
+      );
       canvas.drawImageRect(
         img,
         src,

@@ -312,13 +312,16 @@ class _AvatarSelectScreenState extends State<AvatarSelectScreen> {
                   behavior: HitTestBehavior.opaque,
                   onTap: _save,
                   child: Center(
-                    child: Text(
-                      L10n.t('save'),
-                      textScaler: TextScaler.noScaling,
-                      style: GoogleFonts.poppins(
-                        fontSize: h * 0.0308,
-                        fontWeight: FontWeight.w800,
-                        color: Colors.white,
+                    child: Transform.translate(
+                      offset: Offset(0, -h * 0.012),
+                      child: Text(
+                        L10n.t('save'),
+                        textScaler: TextScaler.noScaling,
+                        style: GoogleFonts.poppins(
+                          fontSize: h * 0.0308,
+                          fontWeight: FontWeight.w800,
+                          color: Colors.white,
+                        ),
                       ),
                     ),
                   ),

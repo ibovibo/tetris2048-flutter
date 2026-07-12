@@ -3,7 +3,6 @@ import 'dart:math';
 import 'package:flame/game.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import 'avatar_manager.dart';
 import 'game/sound_manager.dart';
@@ -25,7 +24,6 @@ class MenuScreen extends StatefulWidget {
 class _MenuScreenState extends State<MenuScreen>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
-  int best = 0;
   int _selectedTabIndex = 2;
 
   @override
@@ -36,7 +34,6 @@ class _MenuScreenState extends State<MenuScreen>
       duration: const Duration(seconds: 1),
     )..repeat(reverse: true);
     SoundManager.init().then((_) => SoundManager.playMenuMusic());
-    _loadBestScore();
   }
 
   @override
@@ -117,25 +114,6 @@ class _MenuScreenState extends State<MenuScreen>
     );
   }
 
-  Future<void> _loadBestScore() async {
-    final prefs = await SharedPreferences.getInstance();
-    if (!mounted) return;
-    setState(() {
-      best = prefs.getInt('best_score') ?? 0;
-    });
-  }
-
-  String _formatScore(int score) {
-    if (score >= 1000000000) {
-      return '${(score / 1000000000).toStringAsFixed(2)}B';
-    } else if (score >= 1000000) {
-      return '${(score / 1000000).toStringAsFixed(2)}M';
-    } else if (score >= 1000) {
-      return '${(score / 1000).toStringAsFixed(1)}K';
-    }
-    return score.toString();
-  }
-
   void _onNavTap(int index) {
     setState(() => _selectedTabIndex = index);
   }
@@ -155,6 +133,7 @@ class _MenuScreenState extends State<MenuScreen>
       case 4:
         return SettingsScreen(
           onBack: () => setState(() => _selectedTabIndex = 2),
+          onLanguageChanged: () => setState(() {}),
         );
       default:
         return _buildPlayPage();
@@ -204,56 +183,6 @@ class _MenuScreenState extends State<MenuScreen>
                 ),
               ),
             ),
-            // En iyi skor paneli
-            Positioned(
-              bottom: h * 0.405,
-              left: w * 0.26,
-              right: w * 0.26,
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  Image.asset(
-                    'assets/images/bestmenu.png',
-                    fit: BoxFit.contain,
-                  ),
-                  Positioned.fill(
-                    child: LayoutBuilder(
-                      builder: (_, c) {
-                        final h2 = c.maxHeight;
-                        return Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            FractionallySizedBox(
-                              widthFactor: 0.72,
-                              child: FittedBox(
-                                fit: BoxFit.scaleDown,
-                                child: Text(
-                                  L10n.t('best_score'),
-                                  textScaler: TextScaler.noScaling,
-                                  style: TextStyle(
-                                    fontSize: h2 * 0.28,
-                                    fontWeight: FontWeight.w700,
-                                    color: const Color(0xFF2446A8),
-                                  ),
-                                ),
-                              ),
-                            ),
-                            Text(
-                              _formatScore(best),
-                              style: TextStyle(
-                                fontSize: h2 * 0.38,
-                                fontWeight: FontWeight.w900,
-                                color: const Color(0xFF2446A8),
-                              ),
-                            ),
-                          ],
-                        );
-                      },
-                    ),
-                  ),
-                ],
-              ),
-            ),
             // PLAY butonu
             Positioned(
               bottom: h * 0.255,
@@ -262,53 +191,52 @@ class _MenuScreenState extends State<MenuScreen>
               child: GestureDetector(
                 onTap: () {
                   SoundManager.stopMusic();
-                  Navigator.of(context)
-                      .push(
-                        MaterialPageRoute(
-                          builder: (_) => const GameScreen(),
-                        ),
-                      )
-                      .then((_) => _loadBestScore());
+                  Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const GameScreen()),
+                  );
                 },
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    Image.asset(
-                      'assets/images/start_bos.png',
-                      fit: BoxFit.contain,
-                    ),
-                    Positioned.fill(
-                      child: LayoutBuilder(
-                        builder: (_, c) {
-                          final h2 = c.maxHeight;
-                          return Transform.translate(
-                            offset: Offset(0, -c.maxHeight * 0.06),
-                            child: _buildButtonLabelSlot(
-                              text: L10n.t('start'),
-                              alignment: Alignment.center,
-                              widthFactor: 0.86,
-                              heightFactor: 0.78,
-                              padding: EdgeInsets.only(
-                                left: c.maxWidth * 0.08,
-                                right: c.maxWidth * 0.08,
-                                top: c.maxHeight * 0.12,
-                                bottom: c.maxHeight * 0.10,
-                              ),
-                              useFittedBox: false,
-                              strokeColor: const Color(0xFF9A4A12),
-                              strokeWidth: h2 * 0.045,
-                              style: TextStyle(
-                                fontSize: h2 * 0.325,
-                                fontWeight: FontWeight.w900,
-                                color: const Color(0xFFF8D57A),
-                                letterSpacing: h2 * 0.03,
-                              ),
-                            ),
-                          );
-                        },
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(20),
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      Image.asset(
+                        'assets/images/start_bos.png',
+                        fit: BoxFit.contain,
                       ),
-                    ),
-                  ],
+                      Positioned.fill(
+                        child: LayoutBuilder(
+                          builder: (_, c) {
+                            final h2 = c.maxHeight;
+                            return Transform.translate(
+                              offset: Offset(0, -c.maxHeight * 0.06),
+                              child: _buildButtonLabelSlot(
+                                text: L10n.t('start'),
+                                alignment: Alignment.center,
+                                widthFactor: 0.86,
+                                heightFactor: 0.78,
+                                padding: EdgeInsets.only(
+                                  left: c.maxWidth * 0.08,
+                                  right: c.maxWidth * 0.08,
+                                  top: c.maxHeight * 0.12,
+                                  bottom: c.maxHeight * 0.10,
+                                ),
+                                useFittedBox: false,
+                                strokeColor: const Color(0xFF9A4A12),
+                                strokeWidth: h2 * 0.045,
+                                style: TextStyle(
+                                  fontSize: h2 * 0.325,
+                                  fontWeight: FontWeight.w900,
+                                  color: const Color(0xFFE2E2E6),
+                                  letterSpacing: h2 * 0.03,
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),

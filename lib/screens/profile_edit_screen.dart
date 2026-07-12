@@ -8,6 +8,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../avatar_manager.dart';
+import '../country_data.dart';
 import '../l10n.dart';
 import '../profile_manager.dart';
 import '../stats_manager.dart';
@@ -23,7 +24,7 @@ class ProfileEditScreen extends StatefulWidget {
 
 class _ProfileEditScreenState extends State<ProfileEditScreen> {
   String _userName = 'Guest';
-  String _selectedCountry = '🇹🇷 Türkiye';
+  String _selectedCountryCode = 'TR';
   bool _isEditingName = false;
   final _nameController = TextEditingController();
   final _nameFocusNode = FocusNode();
@@ -33,203 +34,8 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
   int _totalMerges = 0;
   int _gamesPlayed = 0;
 
-  static const _countries = [
-    '🇦🇫 افغانستان',
-    '🇦🇱 Shqipëri',
-    '🇩🇿 الجزائر',
-    '🇦🇩 Andorra',
-    '🇦🇴 Angola',
-    '🇦🇬 Antigua & Barbuda',
-    '🇦🇷 Argentina',
-    '🇦🇲 Հայաստան',
-    '🇦🇺 Australia',
-    '🇦🇹 Österreich',
-    '🇦🇿 Azərbaycan',
-    '🇧🇸 Bahamas',
-    '🇧🇭 البحرين',
-    '🇧🇩 বাংলাদেশ',
-    '🇧🇧 Barbados',
-    '🇧🇾 Беларусь',
-    '🇧🇪 België',
-    '🇧🇿 Belize',
-    '🇧🇯 Bénin',
-    '🇧🇹 འབྲུག',
-    '🇧🇴 Bolivia',
-    '🇧🇦 Bosna i Hercegovina',
-    '🇧🇼 Botswana',
-    '🇧🇷 Brasil',
-    '🇧🇳 Brunei',
-    '🇧🇬 България',
-    '🇧🇫 Burkina Faso',
-    '🇧🇮 Burundi',
-    '🇨🇻 Cabo Verde',
-    '🇰🇭 កម្ពុជា',
-    '🇨🇲 Cameroun',
-    '🇨🇦 Canada',
-    '🇨🇫 Centrafrique',
-    '🇹🇩 Tchad',
-    '🇨🇱 Chile',
-    '🇨🇳 中国',
-    '🇨🇴 Colombia',
-    '🇰🇲 Comores',
-    '🇨🇬 Congo',
-    '🇨🇩 Congo (RDC)',
-    '🇨🇷 Costa Rica',
-    '🇭🇷 Hrvatska',
-    '🇨🇺 Cuba',
-    '🇨🇾 Κύπρος',
-    '🇨🇿 Česko',
-    '🇩🇰 Danmark',
-    '🇩🇯 Djibouti',
-    '🇩🇴 Rep. Dominicana',
-    '🇪🇨 Ecuador',
-    '🇪🇬 مصر',
-    '🇸🇻 El Salvador',
-    '🇬🇶 Guinea Ecuatorial',
-    '🇪🇷 ኤርትራ',
-    '🇪🇪 Eesti',
-    '🇸🇿 eSwatini',
-    '🇪🇹 ኢትዮጵያ',
-    '🇫🇯 Fiji',
-    '🇫🇮 Suomi',
-    '🇫🇷 France',
-    '🇬🇦 Gabon',
-    '🇬🇲 Gambia',
-    '🇬🇪 საქართველო',
-    '🇩🇪 Deutschland',
-    '🇬🇭 Ghana',
-    '🇬🇷 Ελλάδα',
-    '🇬🇩 Grenada',
-    '🇬🇹 Guatemala',
-    '🇬🇳 Guinée',
-    '🇬🇼 Guiné-Bissau',
-    '🇬🇾 Guyana',
-    '🇭🇹 Haïti',
-    '🇭🇳 Honduras',
-    '🇭🇺 Magyarország',
-    '🇮🇸 Ísland',
-    '🇮🇳 भारत',
-    '🇮🇩 Indonesia',
-    '🇮🇷 ایران',
-    '🇮🇶 العراق',
-    '🇮🇪 Éire',
-    '🇮🇱 ישראל',
-    '🇮🇹 Italia',
-    '🇯🇲 Jamaica',
-    '🇯🇵 日本',
-    '🇯🇴 الأردن',
-    '🇰🇿 Қазақстан',
-    '🇰🇪 Kenya',
-    '🇰🇮 Kiribati',
-    '🇽🇰 Kosovë',
-    '🇰🇼 الكويت',
-    '🇰🇬 Кыргызстан',
-    '🇱🇦 ລາວ',
-    '🇱🇻 Latvija',
-    '🇱🇧 لبنان',
-    '🇱🇸 Lesotho',
-    '🇱🇷 Liberia',
-    '🇱🇾 ليبيا',
-    '🇱🇮 Liechtenstein',
-    '🇱🇹 Lietuva',
-    '🇱🇺 Lëtzebuerg',
-    '🇲🇬 Madagasikara',
-    '🇲🇼 Malawi',
-    '🇲🇾 Malaysia',
-    '🇲🇻 ދިވެހިރާއްޖެ',
-    '🇲🇱 Mali',
-    '🇲🇹 Malta',
-    '🇲🇭 Marshall Islands',
-    '🇲🇷 موريتانيا',
-    '🇲🇺 Maurice',
-    '🇲🇽 México',
-    '🇫🇲 Micronesia',
-    '🇲🇩 Moldova',
-    '🇲🇨 Monaco',
-    '🇲🇳 Монгол Улс',
-    '🇲🇪 Crna Gora',
-    '🇲🇦 المغرب',
-    '🇲🇿 Moçambique',
-    '🇲🇲 မြန်မာ',
-    '🇳🇦 Namibia',
-    '🇳🇷 Nauru',
-    '🇳🇵 नेपाल',
-    '🇳🇱 Nederland',
-    '🇳🇿 Aotearoa',
-    '🇳🇮 Nicaragua',
-    '🇳🇪 Niger',
-    '🇳🇬 Nigeria',
-    '🇰🇵 조선',
-    '🇲🇰 Сев. Македонија',
-    '🇳🇴 Norge',
-    '🇴🇲 عُمان',
-    '🇵🇰 پاکستان',
-    '🇵🇼 Palau',
-    '🇵🇸 فلسطين',
-    '🇵🇦 Panamá',
-    '🇵🇬 Papua New Guinea',
-    '🇵🇾 Paraguay',
-    '🇵🇪 Perú',
-    '🇵🇭 Pilipinas',
-    '🇵🇱 Polska',
-    '🇵🇹 Portugal',
-    '🇶🇦 قطر',
-    '🇷🇴 România',
-    '🇷🇺 Россия',
-    '🇷🇼 Rwanda',
-    '🇰🇳 Saint Kitts & Nevis',
-    '🇱🇨 Saint Lucia',
-    '🇻🇨 Saint Vincent',
-    '🇼🇸 Sāmoa',
-    '🇸🇲 San Marino',
-    '🇸🇹 São Tomé e Príncipe',
-    '🇸🇦 السعودية',
-    '🇸🇳 Sénégal',
-    '🇷🇸 Srbija',
-    '🇸🇨 Seychelles',
-    '🇸🇱 Sierra Leone',
-    '🇸🇬 Singapura',
-    '🇸🇰 Slovensko',
-    '🇸🇮 Slovenija',
-    '🇸🇧 Solomon Islands',
-    '🇸🇴 Soomaaliya',
-    '🇿🇦 South Africa',
-    '🇸🇸 South Sudan',
-    '🇰🇷 한국',
-    '🇪🇸 España',
-    '🇱🇰 ශ්‍රී ලංකා',
-    '🇸🇩 السودان',
-    '🇸🇷 Suriname',
-    '🇸🇪 Sverige',
-    '🇨🇭 Schweiz',
-    '🇸🇾 سوريا',
-    '🇹🇼 臺灣',
-    '🇹🇯 Тоҷикистон',
-    '🇹🇿 Tanzania',
-    '🇹🇭 ไทย',
-    '🇹🇱 Timor-Leste',
-    '🇹🇬 Togo',
-    '🇹🇴 Tonga',
-    '🇹🇹 Trinidad & Tobago',
-    '🇹🇳 تونس',
-    '🇹🇷 Türkiye',
-    '🇹🇲 Türkmenistan',
-    '🇹🇻 Tuvalu',
-    '🇺🇬 Uganda',
-    '🇺🇦 Україна',
-    '🇦🇪 الإمارات',
-    '🇬🇧 United Kingdom',
-    '🇺🇸 United States',
-    '🇺🇾 Uruguay',
-    '🇺🇿 Oʻzbekiston',
-    '🇻🇺 Vanuatu',
-    '🇻🇦 Città del Vaticano',
-    '🇻🇪 Venezuela',
-    '🇻🇳 Việt Nam',
-    '🇾🇪 اليمن',
-    '🇿🇲 Zambia',
-    '🇿🇼 Zimbabwe',
-  ];
+  String get _selectedCountryDisplay =>
+      countryDisplay(countryByCode(_selectedCountryCode), L10n.lang);
 
   @override
   void initState() {
@@ -258,7 +64,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
     if (!mounted) return;
     setState(() {
       _userName = prefs.getString('user_name') ?? 'Guest';
-      _selectedCountry = prefs.getString('user_country') ?? '🇹🇷 Türkiye';
+      _selectedCountryCode = prefs.getString('user_country_code') ?? 'TR';
       _bestBlock = StatsManager.bestBlock;
       _highestScore = StatsManager.highestScore;
       _totalMerges = StatsManager.totalMerges;
@@ -353,7 +159,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
     if (_isEditingName) _finishEditing();
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('user_name', _userName);
-    await prefs.setString('user_country', _selectedCountry);
+    await prefs.setString('user_country_code', _selectedCountryCode);
     ProfileManager.userName = _userName;
     if (mounted) Navigator.pop(context);
   }
@@ -381,10 +187,12 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
   }
 
   void _showCountryPicker() {
-    final sorted = [
-      if (_selectedCountry != null) _selectedCountry!,
-      ..._countries.where((c) => c != _selectedCountry),
-    ];
+    final lang = L10n.lang;
+    final rest = kCountries.where((c) => c.$1 != _selectedCountryCode).toList()
+      ..sort((a, b) => countryName(a, lang)
+          .toLowerCase()
+          .compareTo(countryName(b, lang).toLowerCase()));
+    final sorted = [countryByCode(_selectedCountryCode), ...rest];
     showModalBottomSheet<void>(
       context: context,
       backgroundColor: Colors.white,
@@ -395,10 +203,10 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
         itemCount: sorted.length,
         itemBuilder: (_, i) {
           final country = sorted[i];
-          final isSelected = country == _selectedCountry;
+          final isSelected = country.$1 == _selectedCountryCode;
           return ListTile(
             title: Text(
-              country,
+              countryDisplay(country, lang),
               style: GoogleFonts.poppins(
                 fontSize: 16,
                 color: isSelected
@@ -412,7 +220,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
                     color: Color(0xFF16A34A))
                 : null,
             onTap: () {
-              setState(() => _selectedCountry = country);
+              setState(() => _selectedCountryCode = country.$1);
               Navigator.pop(ctx);
             },
           );
@@ -619,20 +427,24 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
 
                 // ── Edit / Confirm icon (x≈87%, y≈47.2%) ─────────────────
                 Positioned(
-                  right: w * 0.12,
-                  top: h * 0.436,
+                  right: w * 0.08,
+                  top: h * 0.426,
                   width: 44,
                   height: 44,
                   child: GestureDetector(
                     behavior: HitTestBehavior.opaque,
                     onTap: _isEditingName ? _finishEditing : _startEditing,
                     child: Center(
-                      child: Icon(
-                        _isEditingName
-                            ? Icons.check_rounded
-                            : Icons.edit_rounded,
-                        color: const Color(0xFF1E3A8A),
-                        size: h * 0.028,
+                      child: AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 250),
+                        child: Icon(
+                          _isEditingName
+                              ? Icons.check_rounded
+                              : Icons.edit_rounded,
+                          key: ValueKey(_isEditingName),
+                          color: const Color(0xFF1E3A8A),
+                          size: h * 0.028,
+                        ),
                       ),
                     ),
                   ),
@@ -661,7 +473,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
                     child: Align(
                       alignment: Alignment.centerLeft,
                       child: Text(
-                        _selectedCountry,
+                        _selectedCountryDisplay,
                         textScaler: TextScaler.noScaling,
                         style: _ts(h * 0.022, weight: FontWeight.w600),
                         maxLines: 1,
@@ -844,13 +656,16 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
                     behavior: HitTestBehavior.opaque,
                     onTap: _save,
                     child: Center(
-                      child: Text(
-                        L10n.t('save'),
-                        textScaler: TextScaler.noScaling,
-                        style: _ts(
-                          h * 0.028,
-                          weight: FontWeight.w800,
-                          color: Colors.white,
+                      child: Transform.translate(
+                        offset: Offset(0, h * 0.004),
+                        child: Text(
+                          L10n.t('save'),
+                          textScaler: TextScaler.noScaling,
+                          style: _ts(
+                            h * 0.028,
+                            weight: FontWeight.w800,
+                            color: Colors.white,
+                          ),
                         ),
                       ),
                     ),

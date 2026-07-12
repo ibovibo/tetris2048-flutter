@@ -31,7 +31,7 @@ class AvatarDisplay extends StatelessWidget {
         child: Image.asset(
           'assets/ui/avatars/pp$avatarIndex.png',
           fit: BoxFit.contain,
-          errorBuilder: (_, __, ___) =>
+          errorBuilder: (_, _, _) =>
               Image.asset(_defaultAsset, fit: BoxFit.contain, width: size, height: size),
         ),
       );
@@ -45,7 +45,7 @@ class AvatarDisplay extends StatelessWidget {
         fit: BoxFit.cover,
         width: size,
         height: size,
-        errorBuilder: (_, __, ___) =>
+        errorBuilder: (_, _, _) =>
             Image.asset(_defaultAsset, fit: BoxFit.cover, width: size, height: size),
       );
     } else {
