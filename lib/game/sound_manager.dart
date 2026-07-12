@@ -210,6 +210,15 @@ class SoundManager {
     } catch (_) {}
   }
 
+  // ── Bar bozulma — 1M blok tetikleyicisi (özel bir "cam kırılma"
+  // dosyası yok, en yakın patlama efekti kullanılıyor) ─────────
+  static void barBreak() {
+    if (!enabled) return;
+    try {
+      FlameAudio.play('buyukbomba.mp3', volume: (volume * 1.3).clamp(0.0, 1.0));
+    } catch (_) {}
+  }
+
   static void merge(int val) {}
   static void combo(int n) {}
   static void level() {}

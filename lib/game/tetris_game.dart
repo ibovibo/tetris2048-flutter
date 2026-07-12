@@ -12,6 +12,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../l10n.dart';
 import '../achievement_manager.dart';
+import '../leaderboard_manager.dart';
 import '../profile_manager.dart';
 import '../stats_manager.dart';
 import 'board.dart';
@@ -21,6 +22,7 @@ import 'special_resolver.dart';
 import 'sound_manager.dart';
 import 'particle_system.dart';
 import 'max_explosion.dart';
+import 'bar_break.dart';
 
 class TetrisGame extends FlameGame
     with KeyboardEvents, DoubleTapDetector, PanDetector, TapDetector {
@@ -84,6 +86,11 @@ class TetrisGame extends FlameGame
   int _pendingSeasonIdx = 0;
   bool _mysteryActive = false;
   bool _darknessActive = false;
+
+  // Bar bozulma / rastgele mevsim devri (1M blok sonrası endgame)
+  bool isBarBroken = false;
+  bool isRandomSeasonMode = false;
+  BarBreakEffect? _barBreakEffect;
 
   // Evrim animasyonu
   bool _evolutionActive = false;
@@ -334,6 +341,9 @@ class TetrisGame extends FlameGame
     _seasonBombTimer = 0;
     _mysteryActive = false;
     _darknessActive = false;
+    isBarBroken = false;
+    isRandomSeasonMode = false;
+    _barBreakEffect = null;
     _evolutionActive = false;
     _evolutionIsSeasonCycle = false;
     _evolutionTimer = 0.0;
@@ -971,6 +981,19 @@ class TetrisGame extends FlameGame
       }
     }
 
+    // Bar bozulmuş — sezon aktif değilken her hamlede %14 ihtimalle
+    // rastgele bir mevsim tetiklenir (anti-repeat kuralı korunur).
+    final barBreakAnimating = _barBreakEffect != null && !_barBreakEffect!.done;
+    if (isRandomSeasonMode &&
+        !barBreakAnimating &&
+        activeSeason == null &&
+        _maxExplosion == null) {
+      if (_rng.nextDouble() < 0.14) {
+        _pendingSeasonIdx = _pickSeasonIdx();
+        unawaited(_startRandomSeason(durationOverride: 3 + _rng.nextInt(3)));
+      }
+    }
+
     // Buz mevsimi — düşen parça frozen olsun
     if (activeSeason == 'ice') {
       currentPiece.frozen = true;
@@ -1022,6 +1045,7 @@ class TetrisGame extends FlameGame
       playIceJokerSfx: () => SoundManager.iceJoker(),
       playStarSfx: () => SoundManager.starJoker(),
       onMeterGain: (gain) {
+        if (isRandomSeasonMode) return;
         _meter = (_meter + gain).clamp(0.0, 100.0).toDouble();
         if (_meter >= 100.0) {
           _meter = 0.0;
@@ -1117,11 +1141,13 @@ class TetrisGame extends FlameGame
       specialCount = _pendingSpecialCount;
       meterGain += 4.0 * specialCount;
 
-      _meter = (_meter + meterGain).clamp(0.0, 100.0).toDouble();
-      if (_meter >= 100.0) {
-        _meter = 0.0;
-        _meterDisplay = 0.0;
-        _triggerMaxExplosion();
+      if (!isRandomSeasonMode) {
+        _meter = (_meter + meterGain).clamp(0.0, 100.0).toDouble();
+        if (_meter >= 100.0) {
+          _meter = 0.0;
+          _meterDisplay = 0.0;
+          _triggerMaxExplosion();
+        }
       }
     } else {
       _resetCombo();
@@ -1357,6 +1383,15 @@ class TetrisGame extends FlameGame
     }
   }
 
+  int _pickSeasonIdx() {
+    int seasonIdx;
+    do {
+      seasonIdx = _rng.nextInt(kSeasons.length);
+    } while (kSeasons[seasonIdx].key == _lastSeason ||
+        kSeasons[seasonIdx].key == _secondLastSeason);
+    return seasonIdx;
+  }
+
   void _triggerMaxExplosion() {
     if (_maxExplosion != null || _evolutionActive) return;
     SoundManager.pauseMusic();
@@ -1367,16 +1402,19 @@ class TetrisGame extends FlameGame
     _addScore(100000);
     screenShake = 1.2;
 
-    int seasonIdx;
-    do {
-      seasonIdx = _rng.nextInt(kSeasons.length);
-    } while (kSeasons[seasonIdx].key == _lastSeason ||
-        kSeasons[seasonIdx].key == _secondLastSeason);
-    _pendingSeasonIdx = seasonIdx;
-    _maxExplosion = MaxExplosion(selectedSeason: seasonIdx);
+    _pendingSeasonIdx = _pickSeasonIdx();
+    _maxExplosion = MaxExplosion(selectedSeason: _pendingSeasonIdx);
   }
 
-  Future<void> _startRandomSeason() async {
+  // Bar bozulma animasyonunu başlatır — 1M+ blok oluştuğunda bir kez tetiklenir.
+  void _triggerBarBreak() {
+    if (_barBreakEffect != null) return;
+    SoundManager.barBreak();
+    if (activeSeason != null) unawaited(_endSeason());
+    _barBreakEffect = BarBreakEffect();
+  }
+
+  Future<void> _startRandomSeason({int? durationOverride}) async {
     debugPrint('=== _startRandomSeason çağrıldı: $_pendingSeasonIdx ===');
     activeSeason = kSeasons[_pendingSeasonIdx].key;
     _secondLastSeason = _lastSeason;
@@ -1395,27 +1433,28 @@ class TetrisGame extends FlameGame
     debugPrint(
       '_startRandomSeason: activeSeason=$activeSeason, pendingIdx=$_pendingSeasonIdx',
     );
-    seasonTurnsLeft = activeSeason == 'mirror'
-        ? 5
-        : activeSeason == 'bomb'
-        ? 6
-        : activeSeason == 'ice'
-        ? 6
-        : activeSeason == 'gravity'
-        ? 5
-        : activeSeason == 'chaos'
-        ? 6
-        : activeSeason == 'mystery'
-        ? 5
-        : activeSeason == 'darkness'
-        ? 5
-        : activeSeason == 'evolution'
-        ? 5
-        : activeSeason == 'volcano'
-        ? 3
-        : activeSeason == 'voltage'
-        ? 6
-        : 10;
+    seasonTurnsLeft = durationOverride ??
+        (activeSeason == 'mirror'
+            ? 5
+            : activeSeason == 'bomb'
+            ? 6
+            : activeSeason == 'ice'
+            ? 6
+            : activeSeason == 'gravity'
+            ? 5
+            : activeSeason == 'chaos'
+            ? 6
+            : activeSeason == 'mystery'
+            ? 5
+            : activeSeason == 'darkness'
+            ? 5
+            : activeSeason == 'evolution'
+            ? 5
+            : activeSeason == 'volcano'
+            ? 3
+            : activeSeason == 'voltage'
+            ? 6
+            : 10);
     _seasonBombTimer = 2.0;
 
     if (activeSeason == 'gravity') {
@@ -1713,6 +1752,7 @@ class TetrisGame extends FlameGame
       gamesPlayed: StatsManager.gamesPlayed,
       level: ProfileManager.level,
     );
+    await LeaderboardManager.submitScore(score);
     _xpCountTimer = 0.0;
   }
 
@@ -1814,10 +1854,25 @@ class TetrisGame extends FlameGame
     }
     if (curMax > 0) maxTile = curMax;
 
+    // 1M+ tetikleyicisi — normal merge, joker (komşuyu 2 katlar) veya
+    // X2/X4/X8/X16 gibi doğrudan board.set ile değer oluşturan tüm
+    // yollar dahil, panodaki gerçek en büyük değeri esas alır.
+    if (!isBarBroken && curMax >= 1000000) {
+      isBarBroken = true;
+      isRandomSeasonMode = true;
+      _triggerBarBreak();
+    }
+
     _maxExplosion?.update(dt);
     if (_maxExplosion?.done == true) {
       _maxExplosion = null;
       unawaited(_startRandomSeason());
+    }
+
+    _barBreakEffect?.update(dt);
+    if (_barBreakEffect != null && !_barBreakEffect!.done) {
+      final shakeAmt = _barBreakEffect!.shakeIntensity;
+      if (shakeAmt > screenShake) screenShake = shakeAmt;
     }
 
     // Pop cells güncelle
@@ -1967,7 +2022,11 @@ class TetrisGame extends FlameGame
       }
     }
 
-    if (!gameActive || paused || _maxExplosion != null || _volcanoAnimating) {
+    if (!gameActive ||
+        paused ||
+        _maxExplosion != null ||
+        _volcanoAnimating ||
+        (_barBreakEffect != null && !_barBreakEffect!.done)) {
       return;
     }
 
@@ -2045,6 +2104,7 @@ class TetrisGame extends FlameGame
 
     // Tam ekran efektler — gerçek ekran boyutuyla, ölçeklenmeden.
     _maxExplosion?.render(canvas, size.x, size.y);
+    _barBreakEffect?.renderFullScreen(canvas, size.x, size.y);
 
     canvas.restore();
   }
@@ -3173,8 +3233,15 @@ class TetrisGame extends FlameGame
       final barH = barW * (_yuzdeBarImage!.height / _yuzdeBarImage!.width);
       final barX = boardX;
       final barY = boardY + kRows * kCell + 4;
+      final barRect = Rect.fromLTWH(barX, barY, barW, barH);
+      final breakEffect = _barBreakEffect;
 
-      // Buton tam opak
+      canvas.save();
+      if (breakEffect != null) {
+        canvas.translate(breakEffect.shakeOffset.dx, breakEffect.shakeOffset.dy);
+      }
+
+      // Bar görseli HER ZAMAN çizilir — bar kırılınca da kalkmaz, yerinde durur.
       canvas.drawImageRect(
         _yuzdeBarImage!,
         Rect.fromLTWH(
@@ -3187,78 +3254,87 @@ class TetrisGame extends FlameGame
         Paint()..filterQuality = FilterQuality.high,
       );
 
-      // Dolum barı padding
-      final fillPadXLeft = barW * 0.065;
-      final fillPadXRight = barW * 0.18;
-      final fillPadY = barH * 0.31;
-      final fillMaxW = barW - fillPadXLeft - fillPadXRight;
-      final fillH = barH * 0.40;
-      final fillW = fillMaxW * (_meterDisplay / 100.0);
-      final fillX = barX + fillPadXLeft + 4;
-      final fillY = barY + fillPadY;
+      // Dolum/yüzde — sadece bar kırılmamışken (meter sistemi aktifken) gösterilir.
+      if (!isBarBroken) {
+        // Dolum barı padding
+        final fillPadXLeft = barW * 0.065;
+        final fillPadXRight = barW * 0.18;
+        final fillPadY = barH * 0.31;
+        final fillMaxW = barW - fillPadXLeft - fillPadXRight;
+        final fillH = barH * 0.40;
+        final fillW = fillMaxW * (_meterDisplay / 100.0);
+        final fillX = barX + fillPadXLeft + 4;
+        final fillY = barY + fillPadY;
 
-      // Koyu arka plan
-      canvas.drawRRect(
-        RRect.fromRectAndRadius(
-          Rect.fromLTWH(fillX, fillY, fillMaxW, fillH),
-          const Radius.circular(8),
-        ),
-        Paint()..color = const Color(0xFF1A0A00),
-      );
-
-      // Sarı dolum — gradient hissi için iki katman
-      if (fillW > 2) {
-        // Ana dolum
+        // Koyu arka plan
         canvas.drawRRect(
           RRect.fromRectAndRadius(
-            Rect.fromLTWH(fillX, fillY, fillW, fillH),
+            Rect.fromLTWH(fillX, fillY, fillMaxW, fillH),
             const Radius.circular(8),
           ),
-          Paint()..color = const Color(0xFFFFAA00),
+          Paint()..color = const Color(0xFF1A0A00),
         );
 
-        // Üst parlak şerit
-        canvas.drawRRect(
-          RRect.fromRectAndRadius(
-            Rect.fromLTWH(fillX, fillY, fillW, fillH * 0.40),
-            const Radius.circular(8),
-          ),
-          Paint()..color = const Color(0xFFFFE566).withValues(alpha: 0.7),
-        );
+        // Sarı dolum — gradient hissi için iki katman
+        if (fillW > 2) {
+          // Ana dolum
+          canvas.drawRRect(
+            RRect.fromRectAndRadius(
+              Rect.fromLTWH(fillX, fillY, fillW, fillH),
+              const Radius.circular(8),
+            ),
+            Paint()..color = const Color(0xFFFFAA00),
+          );
 
-        // Alt koyu şerit
-        canvas.drawRRect(
-          RRect.fromRectAndRadius(
-            Rect.fromLTWH(fillX, fillY + fillH * 0.65, fillW, fillH * 0.35),
-            const Radius.circular(8),
-          ),
-          Paint()..color = const Color(0xFFCC6600).withValues(alpha: 0.5),
-        );
+          // Üst parlak şerit
+          canvas.drawRRect(
+            RRect.fromRectAndRadius(
+              Rect.fromLTWH(fillX, fillY, fillW, fillH * 0.40),
+              const Radius.circular(8),
+            ),
+            Paint()..color = const Color(0xFFFFE566).withValues(alpha: 0.7),
+          );
 
-        // Parlak iç kenar
-        canvas.drawRRect(
-          RRect.fromRectAndRadius(
-            Rect.fromLTWH(fillX, fillY, fillW, fillH),
-            const Radius.circular(8),
-          ),
-          Paint()
-            ..color = Colors.white.withValues(alpha: 0.15)
-            ..style = PaintingStyle.stroke
-            ..strokeWidth = 1,
+          // Alt koyu şerit
+          canvas.drawRRect(
+            RRect.fromRectAndRadius(
+              Rect.fromLTWH(fillX, fillY + fillH * 0.65, fillW, fillH * 0.35),
+              const Radius.circular(8),
+            ),
+            Paint()..color = const Color(0xFFCC6600).withValues(alpha: 0.5),
+          );
+
+          // Parlak iç kenar
+          canvas.drawRRect(
+            RRect.fromRectAndRadius(
+              Rect.fromLTWH(fillX, fillY, fillW, fillH),
+              const Radius.circular(8),
+            ),
+            Paint()
+              ..color = Colors.white.withValues(alpha: 0.15)
+              ..style = PaintingStyle.stroke
+              ..strokeWidth = 1,
+          );
+        }
+
+        // Yüzde sayacı — barın ortasında (her zaman gösterilsin)
+        final pct = _meterDisplay.clamp(0.0, 100.0);
+        final pctStr =
+            '${pct == 0.0 ? '0' : pct.toStringAsFixed(1).replaceFirst(RegExp(r'^0'), '')}%';
+        final pctArea = Rect.fromLTWH(
+          barX + barW * 0.35,
+          barY + fillPadY,
+          barW * 0.30,
+          fillH,
         );
+        _drawFittedText(canvas, pctStr, pctArea, Colors.white, bold: true);
       }
 
-      // Yüzde sayacı — barın ortasında (her zaman gösterilsin)
-      final pct = _meterDisplay.clamp(0.0, 100.0);
-      final pctStr =
-          '${pct == 0.0 ? '0' : pct.toStringAsFixed(1).replaceFirst(RegExp(r'^0'), '')}%';
-      final pctArea = Rect.fromLTWH(
-        barX + barW * 0.35,
-        barY + fillPadY,
-        barW * 0.30,
-        fillH,
-      );
-      _drawFittedText(canvas, pctStr, pctArea, Colors.white, bold: true);
+      canvas.restore();
+
+      if (isBarBroken) {
+        breakEffect?.renderBar(canvas, barRect);
+      }
     }
 
     // === SAĞ PANEL: MEVSİM ===

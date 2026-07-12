@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'avatar_manager.dart';
 import 'game/sound_manager.dart';
 import 'screens/achievements_screen.dart';
+import 'screens/leaderboard_screen.dart';
 import 'game/tetris_game.dart';
 import 'l10n.dart';
 import 'profile_manager.dart';
@@ -129,7 +130,9 @@ class _MenuScreenState extends State<MenuScreen>
       case 2:
         return _buildPlayPage();
       case 3:
-        return const _ComingSoonPage();
+        return LeaderboardScreen(
+          onBack: () => setState(() => _selectedTabIndex = 2),
+        );
       case 4:
         return SettingsScreen(
           onBack: () => setState(() => _selectedTabIndex = 2),

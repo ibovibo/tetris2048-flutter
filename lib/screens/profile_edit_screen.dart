@@ -12,7 +12,6 @@ import '../country_data.dart';
 import '../l10n.dart';
 import '../profile_manager.dart';
 import '../stats_manager.dart';
-import '../widgets/avatar_display.dart';
 import 'avatar_select_screen.dart';
 
 class ProfileEditScreen extends StatefulWidget {
