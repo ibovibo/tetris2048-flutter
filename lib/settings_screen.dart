@@ -44,28 +44,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _loadSettings() async {
+    await SoundManager.init();
     final prefs = await SharedPreferences.getInstance();
     if (!mounted) return;
     setState(() {
-      _soundEnabled = prefs.getBool('sfx_enabled') ?? true;
-      _musicEnabled = prefs.getBool('music_enabled') ?? true;
+      _soundEnabled = SoundManager.enabled;
+      _musicEnabled = SoundManager.musicEnabled;
       _vibrationEnabled = prefs.getBool('vibration_enabled') ?? true;
     });
   }
 
   Future<void> _saveSound(bool v) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('sfx_enabled', v);
-    SoundManager.enabled = v;
+    await SoundManager.setSfxEnabled(v);
   }
 
   Future<void> _saveMusic(bool v) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('music_enabled', v);
-    if (!v) {
-      SoundManager.stopMusic();
-    } else {
-      SoundManager.init().then((_) => SoundManager.playMenuMusic());
+    await SoundManager.setMusicEnabled(v);
+    if (v) {
+      await SoundManager.playMenuMusic();
     }
   }
 

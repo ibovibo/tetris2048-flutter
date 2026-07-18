@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'achievement_manager.dart';
 import 'avatar_manager.dart';
+import 'game/sound_manager.dart';
 import 'l10n.dart';
 import 'menu_screen.dart';
 import 'profile_manager.dart';
@@ -20,6 +21,7 @@ void main() async {
   await StatsManager.load();
   await AvatarManager.load();
   await AchievementManager.load();
+  await SoundManager.init();
   await _initFirebase();
   runApp(const MyApp());
 }

@@ -63,7 +63,6 @@ class TetrisGame extends FlameGame
   bool gameActive = false;
   @override
   bool paused = false;
-  bool _musicEnabled = true;
   Set<int> seenMilestones = {};
 
   Map<String, int> frozenSet = {};
@@ -514,22 +513,16 @@ class TetrisGame extends FlameGame
         return;
       }
       if (_pauseSfxRect?.contains(p) == true) {
-        SoundManager.enabled = !SoundManager.enabled;
+        await SoundManager.setSfxEnabled(!SoundManager.enabled);
         _pauseSfxFlash = 1.0;
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setBool('sfx_enabled', SoundManager.enabled);
         return;
       }
       if (_pauseMusicRect?.contains(p) == true) {
-        _musicEnabled = !_musicEnabled;
-        if (_musicEnabled) {
+        await SoundManager.setMusicEnabled(!SoundManager.musicEnabled);
+        if (SoundManager.musicEnabled) {
           SoundManager.playGameMusic();
-        } else {
-          SoundManager.stopMusic();
         }
         _pauseMusicFlash = 1.0;
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setBool('music_enabled', _musicEnabled);
         return;
       }
       if (_pauseMenuImage == null) {
@@ -3968,7 +3961,7 @@ class TetrisGame extends FlameGame
         ph * 0.126,
       );
       _pauseMusicRect = musicBtn;
-      if (!_musicEnabled) {
+      if (!SoundManager.musicEnabled) {
         canvas.drawRRect(
           RRect.fromRectAndRadius(musicBtn, const Radius.circular(12)),
           Paint()..color = Colors.black.withValues(alpha: 0.5),

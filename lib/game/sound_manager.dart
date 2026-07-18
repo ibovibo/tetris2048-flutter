@@ -1,8 +1,10 @@
 import 'package:flame_audio/flame_audio.dart';
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class SoundManager {
   static bool enabled = true;
+  static bool musicEnabled = true;
   static double volume = 0.4;
   static bool _initialized = false;
   static AudioPlayer? _seasonPlayer;
@@ -10,6 +12,10 @@ class SoundManager {
   static bool _seasonMusicPlaying = false;
 
   static Future<void> init() async {
+    // Tercihler her çağrıda tazelenir — hot reload bu dosyayı içeren
+    // kütüphanenin static alanlarını varsayılana sıfırlayabildiği için
+    // sadece asset yükleme `_initialized` ile bir kereye sınırlanır.
+    await _hydratePrefs();
     if (_initialized) return;
     try {
       FlameAudio.bgm.initialize();
@@ -33,7 +39,34 @@ class SoundManager {
     } catch (_) {}
   }
 
+  static Future<void> _hydratePrefs() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      enabled = prefs.getBool('sfx_enabled') ?? true;
+      musicEnabled = prefs.getBool('music_enabled') ?? true;
+    } catch (_) {}
+  }
+
   static void toggle() => enabled = !enabled;
+
+  static Future<void> setSfxEnabled(bool v) async {
+    enabled = v;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('sfx_enabled', v);
+    if (!v) {
+      await stopExplosionMusic();
+    }
+  }
+
+  static Future<void> setMusicEnabled(bool v) async {
+    musicEnabled = v;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('music_enabled', v);
+    if (!v) {
+      stopMusic();
+      await stopSeasonMusic();
+    }
+  }
 
   static void setVolume(double v) {
     volume = v.clamp(0.0, 1.0);
@@ -46,7 +79,7 @@ class SoundManager {
 
   // ── Menü müziği ───────────────────────────────────────────
   static Future<void> playMenuMusic() async {
-    if (!enabled) return;
+    if (!musicEnabled) return;
     await stopSeasonMusic();
     await stopExplosionMusic();
     try {
@@ -57,7 +90,7 @@ class SoundManager {
 
   // ── Oyun müziği ───────────────────────────────────────────
   static Future<void> playGameMusic() async {
-    if (!enabled) return;
+    if (!musicEnabled) return;
     if (_seasonMusicPlaying) return;
     try {
       await FlameAudio.bgm.stop(); // her zaman durdur
@@ -79,7 +112,7 @@ class SoundManager {
   }
 
   static Future<void> resumeMusic() async {
-    if (!enabled) return;
+    if (!musicEnabled) return;
     if (_seasonMusicPlaying) return;
     try {
       await FlameAudio.bgm.audioPlayer.setVolume(volume * 0.25);
@@ -113,7 +146,7 @@ class SoundManager {
 
   // ── Mevsim müziği — her mevsimin kendi dosyası ────────────
   static Future<void> playSeasonMusic(String season) async {
-    if (!enabled) return;
+    if (!musicEnabled) return;
     _seasonMusicPlaying = true; // önce flag'i set et
     await stopExplosionMusic();
     await stopSeasonMusic();
