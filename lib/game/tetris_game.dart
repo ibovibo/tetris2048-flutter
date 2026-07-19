@@ -74,6 +74,8 @@ class TetrisGame extends FlameGame
   double animTime = 0;
   double screenShake = 0;
   int maxTile = 0;
+  int _maxGlowRow = -1;
+  int _maxGlowCol = -1;
   int _mergesThisGame = 0;
 
   // Mevsim sistemi
@@ -329,6 +331,8 @@ class TetrisGame extends FlameGame
     screenShake = 0;
     seenMilestones = {};
     maxTile = 0;
+    _maxGlowRow = -1;
+    _maxGlowCol = -1;
     _mergesThisGame = 0;
     _currentGameBestCombo = 1;
     _lastXpGained = 0;
@@ -1847,6 +1851,35 @@ class TetrisGame extends FlameGame
     }
     if (curMax > 0) maxTile = curMax;
 
+    // Aynı değere sahip birden fazla blok varsa efekt sadece tekinde
+    // gösterilsin — mevcut sahip hâlâ geçerliyse korunur, değilse
+    // panoda bulunan ilk eşleşme yeni sahip olur.
+    if (maxTile >= 8) {
+      final ownerStillValid =
+          _maxGlowRow >= 0 &&
+          _maxGlowRow < kRows &&
+          _maxGlowCol >= 0 &&
+          _maxGlowCol < kCols &&
+          board.get(_maxGlowRow, _maxGlowCol) == maxTile;
+      if (!ownerStillValid) {
+        _maxGlowRow = -1;
+        _maxGlowCol = -1;
+        outer:
+        for (int r = 0; r < kRows; r++) {
+          for (int c = 0; c < kCols; c++) {
+            if (board.get(r, c) == maxTile) {
+              _maxGlowRow = r;
+              _maxGlowCol = c;
+              break outer;
+            }
+          }
+        }
+      }
+    } else {
+      _maxGlowRow = -1;
+      _maxGlowCol = -1;
+    }
+
     // 1M+ tetikleyicisi — normal merge, joker (komşuyu 2 katlar) veya
     // X2/X4/X8/X16 gibi doğrudan board.set ile değer oluşturan tüm
     // yollar dahil, panodaki gerçek en büyük değeri esas alır.
@@ -2303,8 +2336,12 @@ class TetrisGame extends FlameGame
           continue;
         }
 
-        // Max tile glow
-        if (v == maxTile && maxTile >= 8 && !_mysteryActive) {
+        // Max tile glow — sadece belirlenen sahip hücrede
+        if (v == maxTile &&
+            maxTile >= 8 &&
+            !_mysteryActive &&
+            r == _maxGlowRow &&
+            c == _maxGlowCol) {
           _drawMaxTileGlow(canvas, c, r, v);
         }
 
@@ -2458,36 +2495,47 @@ class TetrisGame extends FlameGame
     if (_mysteryActive) return; // gizem mevsiminde max tile glow yok
     final cx = boardX + c * kCell + kCell / 2;
     final cy = boardY + r * kCell + kCell / 2;
-    final color = tileColor(val);
     final tier = (log(val.toDouble()) / log(2)).round();
     final t = animTime;
+    final color = Colors.grey.shade300;
+    // Efekt her zaman bloğun kendi hücresi içinde kalsın — merkezden
+    // azami uzaklık, değer büyüdükçe taşma olmasın diye sabitlenir.
+    final maxReach = kCell / 2 - 2;
+    const accent = Color(0xFF8A0028);
 
     // Halo
-    final haloR = kCell * 0.62 + (tier - 3) * 3 + sin(t * 2) * 4;
+    final haloR = (kCell * 0.5 + sin(t * 2) * 3).clamp(kCell * 0.3, maxReach);
     canvas.drawCircle(
       Offset(cx, cy),
       haloR,
-      Paint()..color = color.withValues(alpha: 0.30),
+      Paint()..color = accent.withValues(alpha: 0.45),
     );
 
-    // Parlak kenarlık nabzı
-    canvas.drawRect(
-      Rect.fromLTWH(
-        boardX + c * kCell + 1,
-        boardY + r * kCell + 1,
-        kCell - 2,
-        kCell - 2,
-      ),
+    // Parlak kenarlık — açık gri zemin, içinde dönen bordo/lacivert vurgu
+    final borderRect = Rect.fromLTWH(
+      boardX + c * kCell + 1,
+      boardY + r * kCell + 1,
+      kCell - 2,
+      kCell - 2,
+    );
+    final sweepGradient = SweepGradient(
+      colors: [accent, color, accent, accent],
+      stops: const [0.0, 0.28, 0.36, 1.0],
+      transform: GradientRotation(t * 1.35),
+    );
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(borderRect, const Radius.circular(8)),
       Paint()
-        ..color = color.withValues(alpha: 0.65 + sin(t * 3) * 0.35)
+        ..shader = sweepGradient.createShader(borderRect)
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 2.5,
+        ..strokeWidth = 6.5,
     );
 
     // Dönen parçacıklar (tier >= 5)
     if (tier >= 5) {
       final count = (4 + (tier - 5) * 2).clamp(0, 12);
-      final dist = kCell * 0.58 + (tier - 5) * 3;
+      final dotR = (2 + (tier - 5) * 0.6).clamp(1, 5).toDouble();
+      final dist = (kCell * 0.42).clamp(0.0, maxReach - dotR);
       for (int i = 0; i < count; i++) {
         final angle = (2 * pi / count) * i + t;
         final pulse = 0.55 + sin(t * 4 + i * 1.3) * 0.45;
@@ -2496,7 +2544,7 @@ class TetrisGame extends FlameGame
         final dotColor = i % 2 == 0 ? Colors.white : color;
         canvas.drawCircle(
           Offset(px, py),
-          (2 + (tier - 5) * 0.6).clamp(1, 5),
+          dotR,
           Paint()..color = dotColor.withValues(alpha: pulse),
         );
       }
@@ -2507,12 +2555,16 @@ class TetrisGame extends FlameGame
       final fc = (6 + (tier - 8) * 3).clamp(0, 16);
       for (int i = 0; i < fc; i++) {
         final angle = (2 * pi / fc) * i + t * 1.85;
-        final d = kCell * 0.5 + sin(t * 2.5 + i) * 5;
+        final fireR = (5 + (tier - 8) * 1.5).clamp(2, 8).toDouble();
+        final d = (kCell * 0.32 + sin(t * 2.5 + i) * 3).clamp(
+          0.0,
+          maxReach - fireR,
+        );
         final fx = cx + cos(angle) * d;
         final fy = cy + sin(angle) * d;
         canvas.drawCircle(
           Offset(fx, fy),
-          (5 + (tier - 8) * 1.5).clamp(2, 12),
+          fireR,
           Paint()
             ..color = Colors.orangeAccent.withValues(
               alpha: 0.68 + sin(t * 3 + i) * 0.32,
