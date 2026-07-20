@@ -1883,7 +1883,7 @@ class TetrisGame extends FlameGame
     // 1M+ tetikleyicisi — normal merge, joker (komşuyu 2 katlar) veya
     // X2/X4/X8/X16 gibi doğrudan board.set ile değer oluşturan tüm
     // yollar dahil, panodaki gerçek en büyük değeri esas alır.
-    if (!isBarBroken && curMax >= 1000000) {
+    if (!isBarBroken && curMax >= 10000000) {
       isBarBroken = true;
       isRandomSeasonMode = true;
       _triggerBarBreak();
@@ -2751,7 +2751,6 @@ class TetrisGame extends FlameGame
     double alpha, {
     bool ghost = false,
   }) {
-    final color = tileColor(val);
     const pad = 2.0;
     final rect = RRect.fromRectAndRadius(
       Rect.fromLTWH(x + pad, y + pad, kCell - pad * 2, kCell - pad * 2),
@@ -2759,16 +2758,22 @@ class TetrisGame extends FlameGame
     );
 
     if (ghost) {
-      canvas.drawRRect(rect, Paint()..color = color.withValues(alpha: 0.12));
+      const ghostColor = Color(0xFF7FA0E0);
+      canvas.drawRRect(
+        rect,
+        Paint()..color = ghostColor.withValues(alpha: 0.22),
+      );
       canvas.drawRRect(
         rect,
         Paint()
-          ..color = color.withValues(alpha: 0.3)
+          ..color = ghostColor.withValues(alpha: 0.45)
           ..style = PaintingStyle.stroke
           ..strokeWidth = 1,
       );
       return;
     }
+
+    final color = tileColor(val);
 
     if (_mysteryActive && val != 0 && !isObstacle(val)) {
       final imgKey = 'mystery_block';
