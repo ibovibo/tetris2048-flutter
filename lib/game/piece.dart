@@ -54,7 +54,27 @@ class PieceGenerator {
   static int randomValue(int score) {
     final List<Map<String, dynamic>> pool;
 
-    if (score < 100000) {
+    if (score < 25000) {
+      pool = [
+        {'v': 2, 'w': 100},
+        {'v': 4, 'w': 60},
+        {'v': 8, 'w': 30},
+        {'v': 16, 'w': 20},
+        {'v': 32, 'w': 15},
+        {'v': 64, 'w': 10},
+      ];
+    } else if (score < 50000) {
+      pool = [
+        {'v': 2, 'w': 100},
+        {'v': 4, 'w': 60},
+        {'v': 8, 'w': 30},
+        {'v': 16, 'w': 20},
+        {'v': 32, 'w': 15},
+        {'v': 64, 'w': 10},
+        {'v': 128, 'w': 7},
+        {'v': 256, 'w': 4},
+      ];
+    } else if (score < 100000) {
       pool = [
         {'v': 2, 'w': 100},
         {'v': 4, 'w': 60},
