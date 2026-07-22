@@ -279,10 +279,10 @@ class TetrisGame extends FlameGame
     _recalcLayout();
   }
 
-  // Board + üst/alt UI'nin ekrana sığması için ölçek hesaplar.
-  // Ekran, tasarımın gerektirdiği alandan küçükse (örn. kısa pencere/cihaz),
-  // tüm board+UI katmanı oranlı şekilde küçültülür — asla büyütülmez,
-  // böylece zaten sığan ekranların görünümü değişmez.
+  // Board + üst/alt UI grubu tek parça olarak ölçeklenir.
+  // Kural: grubun yatay genişliği her cihazda ekranın yatay genişliğinin
+  // %80'i olacak; grubun kendi en-boy oranı (designW/designH) sabit
+  // kaldığı için dikey uzunluk da aynı oranda büyüyüp küçülür.
   void _recalcLayout() {
     final designW = kCols * kCell;
     final designBoardH = kRows * kCell;
@@ -297,8 +297,9 @@ class TetrisGame extends FlameGame
     final bottomMargin = barH + 4;
     final designH = topMargin + designBoardH + bottomMargin;
 
+    const groupWidthRatio = 0.80;
     uiScale = (size.x > 0 && size.y > 0)
-        ? min(1.0, min(size.x / designW, size.y / designH))
+        ? (size.x * groupWidthRatio) / designW
         : 1.0;
 
     final vw = size.x / uiScale;
