@@ -615,7 +615,7 @@ class TetrisGame extends FlameGame
   void _drawCross(Canvas canvas, Rect rect) {
     final paint = Paint()
       ..color = const Color(0xFFFF2222)
-      ..strokeWidth = 4
+      ..strokeWidth = rect.shortestSide * 0.1
       ..strokeCap = StrokeCap.round;
     final inset = rect.width * 0.2;
     canvas.drawLine(
@@ -681,134 +681,6 @@ class TetrisGame extends FlameGame
       outTp.paint(canvas, Offset(dx + off.dx, dy + off.dy));
     }
     tp.paint(canvas, Offset(dx, dy));
-  }
-
-  void _drawCurvedOutlineText(
-    Canvas canvas,
-    String text,
-    Rect area,
-    Color color,
-    Color outlineColor, {
-    bool bold = false,
-  }) {
-    final letters = text.split('');
-    if (letters.isEmpty) return;
-
-    // Slightly larger initial font size so the title appears a bit bigger
-    const refLen = 5; // baseline (English "PAUSE")
-    // Shrink only for up to 2 extra characters beyond the 5-char baseline
-    // so strings longer than 7 chars won't trigger further shrinking.
-    final extra = (text.length - refLen).clamp(0, 2);
-    final scale = pow(0.90, extra);
-    double fontSize = area.height * 1.06 * scale;
-    // If this is the localized pause text in Turkish, boost the font size
-    // so the Turkish string appears visually larger regardless of length.
-    if (L10n.lang == 'tr' && text == L10n.t('pause')) {
-      // base boost we want at minimum
-      double boost = 1.35;
-      // If the shrink `scale` dropped below 1.0 due to extra characters,
-      // ensure the boost overcomes the shrink so the final size grows
-      // relative to the baseline. We scale the boost up so that
-      // `scale * boost >= 1.10` (i.e. at least 10% larger than baseline).
-      if (scale < 1.0) {
-        boost = math.max(boost, (1.10 / scale));
-      }
-      fontSize *= boost;
-    }
-    // Further reduce letter spacing so characters are tighter
-    const letterSpacing = -0.4;
-
-    List<TextPainter> buildPainters(double size) => letters
-        .map(
-          (letter) => TextPainter(
-            text: TextSpan(
-              text: letter,
-              style: TextStyle(
-                fontSize: size,
-                fontWeight: bold ? FontWeight.w900 : FontWeight.normal,
-                color: color,
-                letterSpacing: letterSpacing,
-              ),
-            ),
-            textDirection: TextDirection.ltr,
-            textAlign: TextAlign.center,
-          )..layout(),
-        )
-        .toList();
-
-    var painters = buildPainters(fontSize);
-    while (painters.fold<double>(0, (sum, tp) => sum + tp.width) +
-                (letters.length - 1) * (fontSize * 0.06) >
-            area.width &&
-        fontSize > 8) {
-      fontSize -= 1;
-      painters = buildPainters(fontSize);
-    }
-
-    final totalWidth =
-        painters.fold<double>(0, (sum, tp) => sum + tp.width) +
-        (letters.length - 1) * (fontSize * 0.06);
-    final startX = area.left + (area.width - totalWidth) / 2;
-    // Use actual painter heights to center vertically (fixes CJK and shrink alignment)
-    final maxPainterHeight = painters.fold<double>(
-      0.0,
-      (m, tp) => math.max(m, tp.height),
-    );
-    final baseY = area.top + (area.height - maxPainterHeight) / 2;
-    // Keep the title curve subtle.
-    final curveHeight = area.height * 0.08;
-    final rotateSpread = 0.03;
-    final outlineOffsets = [
-      const Offset(-2, 0),
-      const Offset(2, 0),
-      const Offset(0, -2),
-      const Offset(0, 2),
-      const Offset(-2, -2),
-      const Offset(2, -2),
-      const Offset(-2, 2),
-      const Offset(2, 2),
-    ];
-
-    double cursorX = startX;
-    for (var i = 0; i < painters.length; i++) {
-      final tp = painters[i];
-      final progress = letters.length == 1 ? 0.5 : i / (letters.length - 1);
-      final arc = math.sin(progress * math.pi);
-      final yOffset = -curveHeight * arc;
-      final angle = (progress - 0.5) * rotateSpread;
-      final charX = cursorX + tp.width / 2;
-      final charY = baseY + yOffset + tp.height / 2;
-
-      for (final off in outlineOffsets) {
-        canvas.save();
-        canvas.translate(charX + off.dx, charY + off.dy);
-        canvas.rotate(angle);
-        final outTp = TextPainter(
-          text: TextSpan(
-            text: letters[i],
-            style: TextStyle(
-              fontSize: fontSize,
-              fontWeight: bold ? FontWeight.w900 : FontWeight.normal,
-              color: outlineColor,
-              letterSpacing: letterSpacing,
-            ),
-          ),
-          textDirection: TextDirection.ltr,
-          textAlign: TextAlign.center,
-        )..layout();
-        outTp.paint(canvas, Offset(-outTp.width / 2, -outTp.height / 2));
-        canvas.restore();
-      }
-
-      canvas.save();
-      canvas.translate(charX, charY);
-      canvas.rotate(angle);
-      tp.paint(canvas, Offset(-tp.width / 2, -tp.height / 2));
-      canvas.restore();
-
-      // even smaller extra gap between letters
-      cursorX += tp.width + fontSize * 0.02;
-    }
   }
 
   void _togglePause() {
@@ -3864,11 +3736,6 @@ class TetrisGame extends FlameGame
 
     // Pause
     if (paused && gameActive && _pauseMenuImage != null) {
-      canvas.drawRect(
-        Rect.fromLTWH(0, 0, vw, vh),
-        Paint()..color = Colors.black.withValues(alpha: 0.75),
-      );
-
       final pw = vw * 0.80;
       final ph = pw * (_pauseMenuImage!.height / _pauseMenuImage!.width);
       final px = (vw - pw) / 2;
@@ -3886,50 +3753,9 @@ class TetrisGame extends FlameGame
         Paint(),
       );
 
-      // PAUSE başlık yazısı — görselin üst kısmında
-      final pauseText = L10n.t('pause');
-      const pauseRefLen = 5; // English "PAUSE"
-      final effectivePauseLen = math.max(pauseText.length, pauseRefLen);
-      final pauseExtraChars = (effectivePauseLen - pauseRefLen).clamp(0, 20);
-
-      // Per-language visual adjustments
-      final lang = L10n.lang;
-      double langScale = 1.0;
-      double wMul =
-          1.0; // width multiplier (controls font size via width constraint)
-      double dxMul = 0.00; // additional x offset as fraction of pw
-      double dyMul = 0.00; // additional y offset as fraction of ph
-      if (lang == 'tr') {
-        langScale = 1.464;
-        wMul =
-            1.10; // +10% width so the while-loop shrink stops earlier → bigger font
-        dxMul = -0.015; // shift left to keep text centered with wider area
-        dyMul = -0.01;
-      } else if (lang == 'th') {
-        langScale = 2.0; // 2x for Thai
-        dxMul = 0.02;
-        dyMul = -0.04; // move Thai further up by additional 0.03
-      }
-
-      // Keep the title area base constant; apply language scale to height only.
-      final pauseTitleRect = Rect.fromLTWH(
-        px + pw * (0.26 + dxMul),
-        py + ph * (0.045 + dyMul),
-        pw * 0.50 * wMul,
-        ph * 0.095 * langScale,
-      );
-      _drawCurvedOutlineText(
-        canvas,
-        pauseText,
-        pauseTitleRect,
-        Colors.white,
-        const Color(0xFF6A0FD4),
-        bold: true,
-      );
-
       final resumeRect = Rect.fromLTWH(
         px + pw * 0.31,
-        py + ph * 0.272,
+        py + ph * 0.218,
         pw * 0.55,
         ph * 0.077,
       );
@@ -3938,19 +3764,18 @@ class TetrisGame extends FlameGame
         L10n.t('resume'),
         resumeRect,
         Colors.white,
-        const Color(0xFF4CAF50),
+        const Color(0xFF2196F3),
         bold: true,
       );
-      _pauseResumeRect = Rect.fromLTWH(
-        px + pw * 0.15,
-        py + ph * 0.25,
-        pw * 0.70,
-        ph * 0.11,
+      _pauseResumeRect = Rect.fromCenter(
+        center: resumeRect.center,
+        width: pw * 0.70,
+        height: ph * 0.11,
       );
 
       final restartRect = Rect.fromLTWH(
         px + pw * 0.29,
-        py + ph * 0.446,
+        py + ph * 0.406,
         pw * 0.572,
         ph * 0.077,
       );
@@ -3962,16 +3787,15 @@ class TetrisGame extends FlameGame
         const Color(0xFFFF9800),
         bold: true,
       );
-      _pauseRestartRect = Rect.fromLTWH(
-        px + pw * 0.15,
-        py + ph * 0.45,
-        pw * 0.70,
-        ph * 0.11,
+      _pauseRestartRect = Rect.fromCenter(
+        center: restartRect.center,
+        width: pw * 0.70,
+        height: ph * 0.11,
       );
 
       final homeRect = Rect.fromLTWH(
         px + pw * 0.31,
-        py + ph * 0.620,
+        py + ph * 0.580,
         pw * 0.528,
         ph * 0.077,
       );
@@ -3980,54 +3804,85 @@ class TetrisGame extends FlameGame
         L10n.t('menu'),
         homeRect,
         Colors.white,
-        const Color(0xFF2196F3),
+        const Color(0xFF4CAF50),
         bold: true,
       );
-      _pauseHomeRect = Rect.fromLTWH(
-        px + pw * 0.15,
-        py + ph * 0.64,
-        pw * 0.70,
-        ph * 0.11,
+      _pauseHomeRect = Rect.fromCenter(
+        center: homeRect.center,
+        width: pw * 0.70,
+        height: ph * 0.11,
       );
 
-      final sfxBtn = Rect.fromLTWH(
-        px + pw * 0.22,
-        py + ph * 0.790,
+      final sfxBtnBase = Rect.fromLTWH(
+        px + pw * 0.23,
+        py + ph * 0.775,
         pw * 0.198,
         ph * 0.126,
       );
+      final sfxBtn = Rect.fromCenter(
+        center: sfxBtnBase.center,
+        width: sfxBtnBase.width * 1.05,
+        height: sfxBtnBase.height * 1.05,
+      );
       _pauseSfxRect = sfxBtn;
       if (!SoundManager.enabled) {
+        final sfxOffRect = Rect.fromCenter(
+          center: sfxBtn.center,
+          width: sfxBtn.width * 1.1,
+          height: sfxBtn.height * 1.1,
+        );
         canvas.drawRRect(
-          RRect.fromRectAndRadius(sfxBtn, const Radius.circular(12)),
+          RRect.fromRectAndRadius(
+            sfxOffRect,
+            Radius.circular(sfxOffRect.shortestSide * 0.28),
+          ),
           Paint()..color = Colors.black.withValues(alpha: 0.5),
         );
-        _drawCross(canvas, sfxBtn);
+        _drawCross(canvas, sfxOffRect);
       }
       if (_pauseSfxFlash > 0) {
         canvas.drawRRect(
-          RRect.fromRectAndRadius(sfxBtn, const Radius.circular(12)),
+          RRect.fromRectAndRadius(
+            sfxBtn,
+            Radius.circular(sfxBtn.shortestSide * 0.28),
+          ),
           Paint()..color = Colors.white.withValues(alpha: _pauseSfxFlash * 0.5),
         );
       }
 
-      final musicBtn = Rect.fromLTWH(
+      final musicBtnBase = Rect.fromLTWH(
         px + pw * 0.565,
-        py + ph * 0.795,
+        py + ph * 0.775,
         pw * 0.198,
         ph * 0.126,
       );
+      final musicBtn = Rect.fromCenter(
+        center: musicBtnBase.center,
+        width: musicBtnBase.width * 1.05,
+        height: musicBtnBase.height * 1.05,
+      );
       _pauseMusicRect = musicBtn;
       if (!SoundManager.musicEnabled) {
+        final musicOffRect = Rect.fromCenter(
+          center: musicBtn.center,
+          width: musicBtn.width * 1.1,
+          height: musicBtn.height * 1.1,
+        );
         canvas.drawRRect(
-          RRect.fromRectAndRadius(musicBtn, const Radius.circular(12)),
+          RRect.fromRectAndRadius(
+            musicOffRect,
+            Radius.circular(musicOffRect.shortestSide * 0.28),
+          ),
           Paint()..color = Colors.black.withValues(alpha: 0.5),
         );
-        _drawCross(canvas, musicBtn);
+        _drawCross(canvas, musicOffRect);
       }
       if (_pauseMusicFlash > 0) {
         canvas.drawRRect(
-          RRect.fromRectAndRadius(musicBtn, const Radius.circular(12)),
+          RRect.fromRectAndRadius(
+            musicBtn,
+            Radius.circular(musicBtn.shortestSide * 0.28),
+          ),
           Paint()
             ..color = Colors.white.withValues(alpha: _pauseMusicFlash * 0.5),
         );
