@@ -163,14 +163,11 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
     if (mounted) Navigator.pop(context);
   }
 
-  String _compact(double d) =>
-      d == d.truncateToDouble() ? d.toInt().toString() : d.toStringAsFixed(1);
-
   String _formatBlock(int value) {
     if (value == 0) return '0';
-    if (value >= 1000000000) return '${_compact(value / 1000000000)}B';
-    if (value >= 1000000) return '${_compact(value / 1000000)}M';
-    if (value >= 1000) return '${_compact(value / 1000)}K';
+    if (value >= 1000000000) return '${(value / 1000000000).floor()}B';
+    if (value >= 1000000) return '${(value / 1000000).floor()}M';
+    if (value >= 1000) return '${(value / 1000).floor()}K';
     return value.toString();
   }
 
@@ -424,12 +421,12 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
                         ),
                 ),
 
-                // ── Edit / Confirm icon (x≈87%, y≈47.2%) ─────────────────
+                // ── Edit / Confirm icon (ülke satırındaki üçgenle aynı yatay hizada) ─
                 Positioned(
-                  right: w * 0.08,
-                  top: h * 0.426,
+                  right: w * 0.115,
+                  top: h * 0.436,
                   width: 44,
-                  height: 44,
+                  height: h * 0.052,
                   child: GestureDetector(
                     behavior: HitTestBehavior.opaque,
                     onTap: _isEditingName ? _finishEditing : _startEditing,
@@ -636,9 +633,9 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
                 // ── Back button hit area ──────────────────────────────────
                 Positioned(
                   left: 0,
-                  top: h * 0.005,
-                  width: w * 0.18,
-                  height: h * 0.09,
+                  top: 0,
+                  width: w * 0.15,
+                  height: w * 0.15,
                   child: GestureDetector(
                     behavior: HitTestBehavior.opaque,
                     onTap: () => Navigator.pop(context),

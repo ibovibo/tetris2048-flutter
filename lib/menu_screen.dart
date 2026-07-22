@@ -156,36 +156,6 @@ class _MenuScreenState extends State<MenuScreen>
                 fit: BoxFit.cover,
               ),
             ),
-            // Profil widget'ı — sol üst köşe
-            Positioned(
-              top: h * 0.025,
-              left: w * 0.03,
-              width: w * 0.454,
-              child: GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => const ProfileEditScreen(),
-                    ),
-                  ).then((_) => setState(() {}));
-                },
-                child: ProfileWidget(
-                  userName: ProfileManager.userName,
-                  level: ProfileManager.level,
-                  xpProgress: ProfileManager.xpProgress,
-                  avatarPath: AvatarManager.avatarPath,
-                  avatarIndex: AvatarManager.avatarIndex,
-                  onEditAvatar: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => const ProfileEditScreen(),
-                      ),
-                    ).then((_) => setState(() {}));
-                  },
-                ),
-              ),
-            ),
             // PLAY butonu
             Positioned(
               bottom: h * 0.255,
@@ -356,17 +326,49 @@ class _MenuScreenState extends State<MenuScreen>
 
   @override
   Widget build(BuildContext context) {
+    final size = MediaQuery.of(context).size;
     return Scaffold(
       backgroundColor: Colors.black,
       body: Stack(
         children: [
           Positioned.fill(child: _buildActivePage()),
           Positioned(
-            bottom: MediaQuery.of(context).size.height * 0.006,
+            bottom: size.height * 0.006,
             left: 0,
             right: 0,
             child: _buildBottomNav(context),
           ),
+          // Profil widget'ı — cihaz yüksekliğinin %10'unda, nav bar'ın üzerinde
+          if (_selectedTabIndex == 2)
+            Positioned(
+              top: size.height * 0.1,
+              left: size.width * 0.03,
+              width: size.width * 0.454,
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => const ProfileEditScreen(),
+                    ),
+                  ).then((_) => setState(() {}));
+                },
+                child: ProfileWidget(
+                  userName: ProfileManager.userName,
+                  level: ProfileManager.level,
+                  xpProgress: ProfileManager.xpProgress,
+                  avatarPath: AvatarManager.avatarPath,
+                  avatarIndex: AvatarManager.avatarIndex,
+                  onEditAvatar: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => const ProfileEditScreen(),
+                      ),
+                    ).then((_) => setState(() {}));
+                  },
+                ),
+              ),
+            ),
         ],
       ),
     );
