@@ -2,7 +2,11 @@
   "permissions": {
     "allow": [
       "Bash(dart analyze *)",
-      "Bash(rm -f /tmp/test_score.dart)"
+      "Bash(rm -f /tmp/test_score.dart)",
+      "Bash(sips -g pixelWidth -g pixelHeight assets/images/canbari.png)",
+      "Bash(python3 -c ' *)",
+      "Bash(flutter test *)",
+      "Bash(git -C /Users/ibrahimenez/tetris2048-flutter status --porcelain test/)"
     ],
     "additionalDirectories": [
       "/private/tmp"

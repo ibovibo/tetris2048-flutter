@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math';
 
 import 'package:flame/game.dart';
@@ -6,6 +7,7 @@ import 'package:flutter/material.dart';
 
 import 'avatar_manager.dart';
 import 'game/sound_manager.dart';
+import 'life_manager.dart';
 import 'screens/achievements_screen.dart';
 import 'screens/leaderboard_screen.dart';
 import 'game/tetris_game.dart';
@@ -13,6 +15,7 @@ import 'l10n.dart';
 import 'profile_manager.dart';
 import 'screens/profile_edit_screen.dart';
 import 'settings_screen.dart';
+import 'widgets/life_bar_widget.dart';
 import 'widgets/profile_widget.dart';
 
 class MenuScreen extends StatefulWidget {
@@ -26,6 +29,7 @@ class _MenuScreenState extends State<MenuScreen>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   int _selectedTabIndex = 2;
+  Timer? _lifeTimer;
 
   @override
   void initState() {
@@ -35,12 +39,16 @@ class _MenuScreenState extends State<MenuScreen>
       duration: const Duration(seconds: 1),
     )..repeat(reverse: true);
     SoundManager.init().then((_) => SoundManager.playMenuMusic());
+    _lifeTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) setState(() {});
+    });
   }
 
   @override
   void dispose() {
     SoundManager.stopMusic();
     _controller.dispose();
+    _lifeTimer?.cancel();
     super.dispose();
   }
 
@@ -367,6 +375,18 @@ class _MenuScreenState extends State<MenuScreen>
                     ).then((_) => setState(() {}));
                   },
                 ),
+              ),
+            ),
+          // Can göstergesi — profil widget'ının simetriğinde, sağ üstte
+          if (_selectedTabIndex == 2)
+            Positioned(
+              top: size.height * 0.1,
+              right: size.width * 0.03,
+              width: size.width * 0.38,
+              child: LifeBarWidget(
+                currentLives: LifeManager.currentLives,
+                maxLives: LifeManager.maxLives,
+                timeToNext: LifeManager.timeToNextLife(),
               ),
             ),
         ],

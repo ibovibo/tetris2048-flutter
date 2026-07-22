@@ -13,6 +13,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../l10n.dart';
 import '../achievement_manager.dart';
 import '../leaderboard_manager.dart';
+import '../life_manager.dart';
 import '../profile_manager.dart';
 import '../stats_manager.dart';
 import 'board.dart';
@@ -1598,6 +1599,7 @@ class TetrisGame extends FlameGame
     SoundManager.stopMusic();
     await Future<void>.delayed(const Duration(milliseconds: 50));
     SoundManager.gameOver();
+    await LifeManager.useLife();
     if (score > best) {
       best = score;
       _saveBest();

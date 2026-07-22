@@ -6,6 +6,7 @@ import 'achievement_manager.dart';
 import 'avatar_manager.dart';
 import 'game/sound_manager.dart';
 import 'l10n.dart';
+import 'life_manager.dart';
 import 'menu_screen.dart';
 import 'profile_manager.dart';
 import 'stats_manager.dart';
@@ -21,6 +22,7 @@ void main() async {
   await StatsManager.load();
   await AvatarManager.load();
   await AchievementManager.load();
+  await LifeManager.load();
   await SoundManager.init();
   await _initFirebase();
   runApp(const MyApp());
