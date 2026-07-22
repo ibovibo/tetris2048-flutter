@@ -46,10 +46,15 @@ class LifeBarWidget extends StatelessWidget {
               // Can sayısı (üst kutu, hafif sağ üste kaydırılmış)
               Positioned.fill(
                 child: Align(
-                  alignment: const Alignment(
-                    0.78 * 2 - 1,
-                    0.28 * 2 - 1,
-                  ),
+                  alignment: _isMax
+                      ? const Alignment(
+                          0.78 * 2 - 1,
+                          0.28 * 2 - 1,
+                        )
+                      : const Alignment(
+                          0.72 * 2 - 1,
+                          0.28 * 2 - 1,
+                        ),
                   child: _isMax
                       ? SizedBox(
                           width: h * 0.75,
@@ -69,14 +74,14 @@ class LifeBarWidget extends StatelessWidget {
                               TextSpan(
                                 text: '×',
                                 style: _numberStyle(
-                                  fontSize: h * 0.20,
+                                  fontSize: h * 0.231,
                                   color: Colors.white,
                                 ),
                               ),
                               TextSpan(
                                 text: '$currentLives',
                                 style: _numberStyle(
-                                  fontSize: h * 0.20,
+                                  fontSize: h * 0.231,
                                   color: const Color(0xFFFFD54A),
                                 ),
                               ),
@@ -95,8 +100,8 @@ class LifeBarWidget extends StatelessWidget {
                           0.71 * 2 - 1,
                         )
                       : const Alignment(
-                          0.777 * 2 - 1,
-                          0.685 * 2 - 1,
+                          0.86 * 2 - 1,
+                          0.73 * 2 - 1,
                         ),
                   child: SizedBox(
                     width: h * (_isMax ? 0.55 : 0.75),
@@ -106,7 +111,7 @@ class LifeBarWidget extends StatelessWidget {
                         _isMax ? L10n.t('life_full') : _timeText,
                         textScaler: TextScaler.noScaling,
                         style: GoogleFonts.poppins(
-                          fontSize: _isMax ? h * 0.1265 : h * 0.115,
+                          fontSize: _isMax ? h * 0.1265 : h * 0.14884,
                           fontWeight:
                               _isMax ? FontWeight.w900 : FontWeight.w700,
                           color: const Color(0xFFFDF6E3),
