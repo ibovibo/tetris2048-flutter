@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import '../l10n.dart';
 import 'constants.dart';
 
 // ─── Parçacık ────────────────────────────────────────────────
@@ -714,7 +715,7 @@ class ParticleSystem {
     // İçerik
     _txt(
       canvas,
-      'S E V İ Y E',
+      L10n.t('level_label'),
       cx,
       py + 24 * sc,
       10 * sc,
@@ -744,7 +745,7 @@ class ParticleSystem {
 
     _txt(
       canvas,
-      '✦  Y E N İ  S E V İ Y E  ✦',
+      '✦  ${L10n.t('new_level_label')}  ✦',
       cx,
       py + 138 * sc,
       9 * sc,

@@ -1,4 +1,5 @@
 import 'dart:math';
+import '../l10n.dart';
 import 'board.dart';
 import 'constants.dart';
 
@@ -88,7 +89,7 @@ class SpecialResolver {
         }
         final bonus = max(2000, totalVal * 2);
         addScore(bonus);
-        showFloat('💥 DEV PATLAMA!');
+        showFloat('💥 ${L10n.t('mega_explosion_effect')}!');
         playMegaBombSfx?.call();
         board.applyGravity(frozenSet);
       }
@@ -108,7 +109,7 @@ class SpecialResolver {
           }
         }
         playIceJokerSfx?.call();
-        showFloat('❄ DONDURULDU!');
+        showFloat('❄ ${L10n.t('frozen_effect')}!');
       }
     }
   }
@@ -146,7 +147,7 @@ class SpecialResolver {
       board.set(positions[i][0], positions[i][1], vals[i]);
     }
 
-    showFloat('💥 KAOS!');
+    showFloat('💥 ${L10n.t('chaos_effect')}!');
   }
 
   // ── JOKER — komşu max değeri 2 katlar ────────────────────

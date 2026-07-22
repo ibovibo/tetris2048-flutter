@@ -3289,7 +3289,7 @@ class TetrisGame extends FlameGame
       );
       _drawTextCentered(
         canvas,
-        '${si.emoji} ${si.name}',
+        '${si.emoji} ${L10n.t('season_${si.key}')}',
         rpX + rpW / 2,
         siY + 18,
         8,
@@ -3298,7 +3298,7 @@ class TetrisGame extends FlameGame
       );
       _drawTextCentered(
         canvas,
-        '$seasonTurnsLeft TUR',
+        '$seasonTurnsLeft ${L10n.t('turns')}',
         rpX + rpW / 2,
         siY + 36,
         9,
@@ -3927,7 +3927,7 @@ class TetrisGame extends FlameGame
       // Başlık
       _drawTextCentered(
         canvas,
-        '⏸  DURAKLATILDI',
+        '⏸  ${L10n.t('pause')}',
         pcx,
         pry + 30,
         17,
@@ -3949,7 +3949,7 @@ class TetrisGame extends FlameGame
         pry + 90,
         162,
         36,
-        '[ESC]  DEVAM ET',
+        '[ESC]  ${L10n.t('resume')}',
         const Color(0xFF5CF5E0),
       );
       _drawMenuButton(
@@ -3958,7 +3958,7 @@ class TetrisGame extends FlameGame
         pry + 140,
         162,
         36,
-        '[M]  ANA MENÜ',
+        '[M]  ${L10n.t('menu')}',
         const Color(0xFFFF8800),
       );
     }
