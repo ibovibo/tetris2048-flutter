@@ -96,5 +96,6 @@ const List<Achievement> kAchievements = [
   Achievement(id: 'level_10',  category: AchievementCategory.level, title: 'Deneyimli',     description: "Level 10'a ulaş",  target: 10),
   Achievement(id: 'level_25',  category: AchievementCategory.level, title: 'Veteran',       description: "Level 25'e ulaş",  target: 25),
   Achievement(id: 'level_50',  category: AchievementCategory.level, title: 'Usta Oyuncu',   description: "Level 50'ye ulaş", target: 50),
+  Achievement(id: 'level_75',  category: AchievementCategory.level, title: 'Şampiyon',      description: "Level 75'e ulaş",  target: 75),
   Achievement(id: 'level_100', category: AchievementCategory.level, title: 'Efsane Oyuncu', description: "Level 100'e ulaş", target: 100),
 ];

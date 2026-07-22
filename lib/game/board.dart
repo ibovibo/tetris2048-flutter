@@ -126,8 +126,7 @@ class Board {
             cells[r][c] = 0;
             frozenSet.remove('${r + 1},$c');
             frozenSet.remove('$r,$c');
-            final logBase = log(newVal) / log(2);
-            final scoreVal = (newVal * (4.0 / logBase)).round();
+            final scoreVal = _scoreForMerge(newVal);
             events.add(
               MergeEvent(
                 cx: c * kCell + kCell / 2,
@@ -160,8 +159,7 @@ class Board {
             cells[r][c] = 0;
             frozenSet.remove('$r,${c + 1}');
             frozenSet.remove('$r,$c');
-            final logBase = log(newVal) / log(2);
-            final scoreVal = (newVal * (4.0 / logBase)).round();
+            final scoreVal = _scoreForMerge(newVal);
             events.add(
               MergeEvent(
                 cx: (c + 1) * kCell + kCell / 2,
@@ -185,6 +183,18 @@ class Board {
     }
 
     return events;
+  }
+
+  int _scoreForMerge(int newVal) {
+    final logBase = log(newVal) / log(2);
+    double scoreVal = newVal * (4.0 / logBase);
+    if (newVal > 1000000) {
+      // 1 milyon üzeri her blokta puan %16'dan başlayıp %2 artan oranda azaltılır
+      final stepsAbove = logBase.round() - 20;
+      final reduction = (0.16 + 0.02 * stepsAbove).clamp(0.0, 0.9);
+      scoreVal *= (1 - reduction);
+    }
+    return scoreVal.round();
   }
 
   int _getMultiplier(int r, int c, List<MultiplierLine> lines) {

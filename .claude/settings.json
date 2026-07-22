@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dart analyze *)",
+      "Bash(rm -f /tmp/test_score.dart)"
+    ],
+    "additionalDirectories": [
+      "/private/tmp"
+    ]
+  }
+}

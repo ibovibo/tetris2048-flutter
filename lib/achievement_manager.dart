@@ -68,7 +68,7 @@ class AchievementManager {
     }
 
     // Level başarımları
-    for (final id in const ['level_5', 'level_10', 'level_25', 'level_50', 'level_100']) {
+    for (final id in const ['level_5', 'level_10', 'level_25', 'level_50', 'level_75', 'level_100']) {
       await updateProgress(id, level);
     }
   }
