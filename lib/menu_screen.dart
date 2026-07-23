@@ -16,6 +16,7 @@ import 'profile_manager.dart';
 import 'screens/profile_edit_screen.dart';
 import 'settings_screen.dart';
 import 'widgets/life_bar_widget.dart';
+import 'widgets/no_lives_popup.dart';
 import 'widgets/profile_widget.dart';
 
 class MenuScreen extends StatefulWidget {
@@ -127,6 +128,48 @@ class _MenuScreenState extends State<MenuScreen>
     setState(() => _selectedTabIndex = index);
   }
 
+  Future<void> _tryStartGame() async {
+    if (LifeManager.hasLife) {
+      await LifeManager.useLife();
+      if (!mounted) return;
+      setState(() {});
+      SoundManager.stopMusic();
+      Navigator.of(
+        context,
+      ).push(MaterialPageRoute(builder: (_) => const GameScreen()));
+    } else {
+      _showNoLivesPopup();
+    }
+  }
+
+  void _showNoLivesPopup() {
+    showDialog<void>(
+      context: context,
+      barrierDismissible: true,
+      builder: (dialogContext) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 32),
+        child: NoLivesPopup(
+          onWatchAd: () async {
+            // TODO: gerçek rewarded reklam SDK entegrasyonu (AdMob/AppLovin)
+            await Future<void>.delayed(const Duration(seconds: 1));
+            await LifeManager.addLife(1);
+            if (!dialogContext.mounted) return;
+            Navigator.of(dialogContext).pop();
+            if (!mounted) return;
+            setState(() {});
+            await _tryStartGame();
+          },
+          onBuyPremium: () {
+            Navigator.of(dialogContext).pop();
+            // TODO: premium mağaza ekranı açılacak
+          },
+          onClose: () => Navigator.of(dialogContext).pop(),
+        ),
+      ),
+    );
+  }
+
   Widget _buildActivePage() {
     switch (_selectedTabIndex) {
       case 0:
@@ -170,12 +213,7 @@ class _MenuScreenState extends State<MenuScreen>
               left: w * 0.225,
               right: w * 0.225,
               child: GestureDetector(
-                onTap: () {
-                  SoundManager.stopMusic();
-                  Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const GameScreen()),
-                  );
-                },
+                onTap: _tryStartGame,
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(20),
                   child: Stack(
@@ -436,6 +474,41 @@ class _GameScreenState extends State<GameScreen> {
       Navigator.of(context).pop();
       SoundManager.init().then((_) => SoundManager.playMenuMusic());
     };
+    _game.onRequestRestart = (proceed) async {
+      if (LifeManager.hasLife) {
+        await LifeManager.useLife();
+        proceed();
+      } else {
+        _showNoLivesPopup(proceed);
+      }
+    };
+  }
+
+  void _showNoLivesPopup(VoidCallback proceed) {
+    showDialog<void>(
+      context: context,
+      barrierDismissible: true,
+      builder: (dialogContext) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 32),
+        child: NoLivesPopup(
+          onWatchAd: () async {
+            // TODO: gerçek rewarded reklam SDK entegrasyonu (AdMob/AppLovin)
+            await Future<void>.delayed(const Duration(seconds: 1));
+            await LifeManager.addLife(1);
+            if (!dialogContext.mounted) return;
+            Navigator.of(dialogContext).pop();
+            await LifeManager.useLife();
+            proceed();
+          },
+          onBuyPremium: () {
+            Navigator.of(dialogContext).pop();
+            // TODO: premium mağaza ekranı açılacak
+          },
+          onClose: () => Navigator.of(dialogContext).pop(),
+        ),
+      ),
+    );
   }
 
   @override

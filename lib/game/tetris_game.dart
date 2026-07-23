@@ -13,7 +13,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../l10n.dart';
 import '../achievement_manager.dart';
 import '../leaderboard_manager.dart';
-import '../life_manager.dart';
 import '../profile_manager.dart';
 import '../stats_manager.dart';
 import 'board.dart';
@@ -29,6 +28,9 @@ class TetrisGame extends FlameGame
     with KeyboardEvents, DoubleTapDetector, PanDetector, TapDetector {
   TetrisGame();
   void Function()? onPause;
+  // Yeniden Oyna'ya basılınca çağrılır: can kontrolü GameScreen'de yapılır,
+  // can varsa `proceed` çağrılarak oyun asıl başlatılır.
+  void Function(VoidCallback proceed)? onRequestRestart;
 
   late Board board;
   late Piece currentPiece;
@@ -554,7 +556,11 @@ class TetrisGame extends FlameGame
 
     if (!gameActive) {
       if (_gameOverRestartRect?.contains(Offset(tap.x, tap.y)) == true) {
-        _initGame();
+        if (onRequestRestart != null) {
+          onRequestRestart!(_initGame);
+        } else {
+          _initGame();
+        }
         return;
       }
       if (_gameOverMenuRect?.contains(Offset(tap.x, tap.y)) == true) {
@@ -1599,7 +1605,6 @@ class TetrisGame extends FlameGame
     SoundManager.stopMusic();
     await Future<void>.delayed(const Duration(milliseconds: 50));
     SoundManager.gameOver();
-    await LifeManager.useLife();
     if (score > best) {
       best = score;
       _saveBest();
