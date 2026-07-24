@@ -6,7 +6,16 @@
       "Bash(sips -g pixelWidth -g pixelHeight assets/images/canbari.png)",
       "Bash(python3 -c ' *)",
       "Bash(flutter test *)",
-      "Bash(git -C /Users/ibrahimenez/tetris2048-flutter status --porcelain test/)"
+      "Bash(git -C /Users/ibrahimenez/tetris2048-flutter status --porcelain test/)",
+      "Bash(grep -n \"_drawTile\\\\|Map<String, ui.Image> _blockImages\\\\|_blockImages =\\\\|void _drawTile\\\\|imgKey = 'bomb'\\\\|imgKey = 'megabomb'\\\\|imgKey = 'ice'\\\\|imgKey = 'star'\\\\|imgKey = 'chaos'\\\\|final blockMap = {\" lib/game/tetris_game.dart)",
+      "Bash(flutter devices *)",
+      "Bash(tee /private/tmp/claude-501/-Users-ibrahimenez-tetris2048-flutter/5fe05c57-87bd-489a-9c5e-6f6af88ed14b/scratchpad/flutter_run.log)",
+      "Bash(osascript -e 'tell application \"System Events\" to \\(name of processes\\)')",
+      "Bash(osascript -e 'tell application \"tetris2048\" to activate')",
+      "Bash(screencapture -x /private/tmp/claude-501/-Users-ibrahimenez-tetris2048-flutter/5fe05c57-87bd-489a-9c5e-6f6af88ed14b/scratchpad/screen1.png)",
+      "Bash(system_profiler SPDisplaysDataType)",
+      "Bash(screencapture -x -D1 /private/tmp/claude-501/-Users-ibrahimenez-tetris2048-flutter/5fe05c57-87bd-489a-9c5e-6f6af88ed14b/scratchpad/screen2.png)",
+      "Bash(osascript -e 'tell application \"System Events\" to tell process \"tetris2048\" to get {name, position, size} of window 1')"
     ],
     "additionalDirectories": [
       "/private/tmp"

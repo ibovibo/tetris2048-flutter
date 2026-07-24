@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:math';
 import 'dart:math' as math;
 import 'dart:async';
@@ -12,6 +13,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../l10n.dart';
 import '../achievement_manager.dart';
+import '../block_skin_manager.dart';
 import '../leaderboard_manager.dart';
 import '../profile_manager.dart';
 import '../stats_manager.dart';
@@ -238,6 +240,18 @@ class TetrisGame extends FlameGame
         _blockImages[entry.key] = await Flame.images.load(
           'blocks/${entry.value}.png',
         );
+      } catch (_) {}
+    }
+
+    // Kullanıcının özelleştirdiği blok görselleri varsa varsayılanların üzerine yazılır.
+    for (final type in SpecialBlockType.values) {
+      final customPath = BlockSkinManager.customSkins[type];
+      if (customPath == null) continue;
+      try {
+        final bytes = await File(customPath).readAsBytes();
+        final codec = await ui.instantiateImageCodec(bytes);
+        final frame = await codec.getNextFrame();
+        _blockImages[BlockSkinManager.gameImageKeys[type]!] = frame.image;
       } catch (_) {}
     }
 

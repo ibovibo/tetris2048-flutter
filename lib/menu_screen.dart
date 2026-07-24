@@ -13,6 +13,7 @@ import 'screens/leaderboard_screen.dart';
 import 'game/tetris_game.dart';
 import 'l10n.dart';
 import 'profile_manager.dart';
+import 'screens/block_skin_screen.dart';
 import 'screens/profile_edit_screen.dart';
 import 'settings_screen.dart';
 import 'widgets/life_bar_widget.dart';
@@ -255,6 +256,37 @@ class _MenuScreenState extends State<MenuScreen>
                         ),
                       ),
                     ],
+                  ),
+                ),
+              ),
+            ),
+            // Blok görselleri özelleştirme girişi
+            Positioned(
+              top: h * 0.10,
+              right: w * 0.04,
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const BlockSkinScreen()),
+                  );
+                },
+                child: Container(
+                  width: w * 0.13,
+                  height: w * 0.13,
+                  constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: const Color(0xFF1E3A8A).withValues(alpha: 0.85),
+                    border: Border.all(color: Colors.white, width: 1.5),
+                    boxShadow: const [
+                      BoxShadow(color: Colors.black45, blurRadius: 6, offset: Offset(0, 2)),
+                    ],
+                  ),
+                  child: Icon(
+                    Icons.image_rounded,
+                    color: Colors.white,
+                    size: w * 0.065,
                   ),
                 ),
               ),
