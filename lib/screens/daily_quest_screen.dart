@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../currency_manager.dart';
 import '../daily_quest_data.dart';
 import '../daily_quest_manager.dart';
 import '../l10n.dart';
@@ -17,13 +18,20 @@ class DailyQuestScreen extends StatefulWidget {
 class _DailyQuestScreenState extends State<DailyQuestScreen> {
   Timer? _refreshTimer;
   bool _watchingAd = false;
+  late Set<String> _completedIds;
 
   @override
   void initState() {
     super.initState();
+    _completedIds = DailyQuestManager.todaysQuests
+        .where((q) => q.completed)
+        .map((q) => q.template.id)
+        .toSet();
     // activeTime görevi arka planda ilerleyebilir — ekran açıkken düzenli tazele.
     _refreshTimer = Timer.periodic(const Duration(seconds: 15), (_) {
-      if (mounted) setState(() {});
+      if (!mounted) return;
+      setState(() {});
+      _checkNewlyCompleted();
     });
   }
 
@@ -33,11 +41,44 @@ class _DailyQuestScreenState extends State<DailyQuestScreen> {
     super.dispose();
   }
 
+  // Arka planda (aktif süre vb.) tamamlanan görevleri yakalayıp altın efektini gösterir.
+  void _checkNewlyCompleted() {
+    for (final q in DailyQuestManager.todaysQuests) {
+      if (q.completed && !_completedIds.contains(q.template.id)) {
+        _completedIds.add(q.template.id);
+        _showGoldToast(q.template.goldReward);
+      }
+    }
+  }
+
+  void _showGoldToast(int amount) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        backgroundColor: const Color(0xFF1E3A8A),
+        duration: const Duration(seconds: 2),
+        behavior: SnackBarBehavior.floating,
+        content: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('🪙', style: TextStyle(fontSize: 18)),
+            const SizedBox(width: 8),
+            Text(
+              '+$amount',
+              style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.w700),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Future<void> _watchAd() async {
     setState(() => _watchingAd = true);
     // TODO: gerçek rewarded reklam SDK entegrasyonu (AdMob/AppLovin)
     await Future<void>.delayed(const Duration(seconds: 1));
     await DailyQuestManager.completeWatchAd();
+    _checkNewlyCompleted();
     if (mounted) setState(() => _watchingAd = false);
   }
 
@@ -73,6 +114,22 @@ class _DailyQuestScreenState extends State<DailyQuestScreen> {
                         fontWeight: FontWeight.w700,
                         color: const Color(0xFF1E3A8A),
                       ),
+                    ),
+                    const SizedBox(height: 4),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Text('🪙', style: TextStyle(fontSize: 13)),
+                        const SizedBox(width: 4),
+                        Text(
+                          '${q.template.goldReward}',
+                          style: GoogleFonts.poppins(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: const Color(0xFFB45309),
+                          ),
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 8),
                     if (!isAd) ...[
@@ -181,15 +238,44 @@ class _DailyQuestScreenState extends State<DailyQuestScreen> {
               ),
               Padding(
                 padding: const EdgeInsets.only(bottom: 8),
-                child: Text(
-                  L10n.t('quests_completed_label')
-                      .replaceAll('{count}', '${DailyQuestManager.completedCount}')
-                      .replaceAll('{total}', '${quests.length}'),
-                  style: GoogleFonts.poppins(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.white70,
-                  ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      L10n.t('quests_completed_label')
+                          .replaceAll('{count}', '${DailyQuestManager.completedCount}')
+                          .replaceAll('{total}', '${quests.length}'),
+                      style: GoogleFonts.poppins(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white70,
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: Colors.white24, width: 1),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Text('🪙', style: TextStyle(fontSize: 14)),
+                          const SizedBox(width: 5),
+                          Text(
+                            '${CurrencyManager.gold}',
+                            style: GoogleFonts.poppins(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: const Color(0xFFFACC15),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
               ),
               Expanded(

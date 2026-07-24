@@ -272,22 +272,15 @@ class _MenuScreenState extends State<MenuScreen>
                     MaterialPageRoute(builder: (_) => const BlockSkinScreen()),
                   );
                 },
-                child: Container(
+                child: SizedBox(
                   width: w * 0.13,
                   height: w * 0.13,
-                  constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: const Color(0xFF1E3A8A).withValues(alpha: 0.85),
-                    border: Border.all(color: Colors.white, width: 1.5),
-                    boxShadow: const [
-                      BoxShadow(color: Colors.black45, blurRadius: 6, offset: Offset(0, 2)),
-                    ],
-                  ),
-                  child: Icon(
-                    Icons.image_rounded,
-                    color: Colors.white,
-                    size: w * 0.065,
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+                    child: Image.asset(
+                      'assets/images/gorsel.png',
+                      fit: BoxFit.contain,
+                    ),
                   ),
                 ),
               ),

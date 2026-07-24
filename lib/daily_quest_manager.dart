@@ -5,6 +5,7 @@ import 'dart:math';
 import 'package:flutter/widgets.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'currency_manager.dart';
 import 'daily_quest_data.dart';
 
 class DailyQuest {
@@ -197,7 +198,7 @@ class DailyQuestManager {
         case QuestType.watchAd:
           break;
       }
-      _checkAndComplete(q);
+      await _checkAndComplete(q);
     }
     await _persist();
   }
@@ -208,7 +209,7 @@ class DailyQuestManager {
       if (q.completed) continue;
       if (q.template.type == QuestType.seasons && q.template.isTotal) {
         q.progress++;
-        _checkAndComplete(q);
+        await _checkAndComplete(q);
       }
     }
     await _persist();
@@ -220,7 +221,7 @@ class DailyQuestManager {
       if (q.completed) continue;
       if (q.template.type == QuestType.activeTime) {
         q.progress += minutes;
-        _checkAndComplete(q);
+        await _checkAndComplete(q);
       }
     }
     await _persist();
@@ -231,17 +232,19 @@ class DailyQuestManager {
     for (final q in todaysQuests) {
       if (q.template.type == QuestType.watchAd && !q.completed) {
         q.progress = q.template.target;
-        q.completed = true;
-        // TODO: sikke ödülü
+        await _checkAndComplete(q);
       }
     }
     await _persist();
   }
 
-  static void _checkAndComplete(DailyQuest q) {
+  // Görev ilk kez tamamlanınca (false->true geçişi) altın ödülünü verir.
+  // `completed` bayrağı zaten kalıcı olduğundan bu geçiş görev başına en fazla
+  // bir kez gerçekleşir — çift ödül verilmez.
+  static Future<void> _checkAndComplete(DailyQuest q) async {
     if (!q.completed && q.progress >= q.template.target) {
       q.completed = true;
-      // TODO: sikke ödülü
+      await CurrencyManager.addGold(q.template.goldReward);
     }
   }
 

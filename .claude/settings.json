@@ -17,7 +17,8 @@
       "Bash(screencapture -x -D1 /private/tmp/claude-501/-Users-ibrahimenez-tetris2048-flutter/5fe05c57-87bd-489a-9c5e-6f6af88ed14b/scratchpad/screen2.png)",
       "Bash(osascript -e 'tell application \"System Events\" to tell process \"tetris2048\" to get {name, position, size} of window 1')",
       "Bash(tee /private/tmp/claude-501/-Users-ibrahimenez-tetris2048-flutter/5fe05c57-87bd-489a-9c5e-6f6af88ed14b/scratchpad/flutter_run2.log)",
-      "Bash(osascript -e 'tell application \"System Events\" to get {name of processes}')"
+      "Bash(osascript -e 'tell application \"System Events\" to get {name of processes}')",
+      "Bash(sips -g pixelWidth -g pixelHeight /Users/ibrahimenez/tetris2048-flutter/assets/images/gorsel.png)"
     ],
     "additionalDirectories": [
       "/private/tmp"
