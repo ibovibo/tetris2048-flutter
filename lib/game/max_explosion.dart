@@ -44,6 +44,7 @@ class MaxExplosion {
   double _spinSpeed = 0.055;
   bool slotDone = false;
   static const double _slotDuration = 2.0;
+  static const double _lockHold = 0.35;
 
   // Announce
   double _announceTime = 0;
@@ -101,17 +102,22 @@ class MaxExplosion {
         }
 
       case _Phase.slot:
-        _spinTimer += dt;
-        final progress = (phaseTime / _slotDuration).clamp(0.0, 1.0);
-        // Yavaşlayan spin
-        _spinSpeed = (0.055 - progress * 0.050).clamp(0.005, 0.055);
-        if (_spinTimer >= _spinSpeed) {
-          _spinTimer = 0;
-          _spinIndex = (_spinIndex + 1) % kSeasons.length;
+        final spinWindow = _slotDuration - _lockHold;
+        if (!slotDone) {
+          _spinTimer += dt;
+          final progress = (phaseTime / spinWindow).clamp(0.0, 1.0);
+          // Yavaşlayan spin
+          _spinSpeed = (0.055 - progress * 0.050).clamp(0.005, 0.055);
+          if (_spinTimer >= _spinSpeed) {
+            _spinTimer = 0;
+            _spinIndex = (_spinIndex + 1) % kSeasons.length;
+          }
+          if (phaseTime >= spinWindow) {
+            slotDone = true;
+            _spinIndex = selectedSeason;
+          }
         }
         if (phaseTime >= _slotDuration) {
-          slotDone = true;
-          _spinIndex = selectedSeason;
           phase = _Phase.announce;
           phaseTime = 0;
         }
@@ -268,6 +274,14 @@ class MaxExplosion {
       Rect.fromLTWH(mx, my, machineW, machineH), const Radius.circular(16)),
       Paint()..color=const Color(0xFF06041E).withValues(alpha:a*0.97));
 
+    // Cam parlaklığı (üst yarıda hafif bir yansıma)
+    final glossRect = Rect.fromLTWH(mx+6, my+4, machineW-12, machineH*0.4);
+    canvas.drawRRect(RRect.fromRectAndRadius(glossRect, const Radius.circular(12)),
+      Paint()..shader=LinearGradient(
+        colors:[Colors.white.withValues(alpha:a*0.10), Colors.white.withValues(alpha:0)],
+        begin:Alignment.topCenter, end:Alignment.bottomCenter,
+      ).createShader(glossRect));
+
     // Üst/alt renkli bar
     canvas.drawRRect(RRect.fromRectAndRadius(
       Rect.fromLTWH(mx, my, machineW, 6), const Radius.circular(16)),
@@ -302,13 +316,35 @@ class MaxExplosion {
         Paint()..color=Colors.black.withValues(alpha:0.55));
     }
 
-    // Emoji — büyük
-    _txt(canvas, season.emoji, cx-50, my+machineH/2,
-      38, season.color.withValues(alpha:a));
-
-    // İsim
-    _txt(canvas, _seasonText(season.key), cx+28, my+machineH/2,
-      24, season.color.withValues(alpha:a), bold:true);
+    // Emoji — sabit boyutta. Semboller çark içinde yatay kayarak döner, isim yazısı yok.
+    final spinWindow = _slotDuration - _lockHold;
+    final symbolY = my + machineH/2;
+    if (!slotDone) {
+      // Dönerken: yeni sembol sağdan kayıp merkeze oturur, önceki sembol sola kayıp solar.
+      final tickProgress = (_spinTimer / _spinSpeed).clamp(0.0, 1.0);
+      final prevSeason = kSeasons[(_spinIndex - 1 + kSeasons.length) % kSeasons.length];
+      final entryOffset = (1 - tickProgress) * 20;
+      final exitOffset = tickProgress * 34;
+      final exitAlpha = (1 - tickProgress) * 0.4;
+      if (exitAlpha > 0.01) {
+        _txt(canvas, prevSeason.emoji, cx - exitOffset, symbolY,
+          52, prevSeason.color.withValues(alpha:a*exitAlpha));
+      }
+      _txt(canvas, season.emoji, cx + entryOffset, symbolY,
+        52, season.color.withValues(alpha:a));
+    } else {
+      // Kilitlenince etrafında kısa süreli genişleyen ışık halkaları belirir.
+      final lockElapsed = (phaseTime - spinWindow).clamp(0.0, _lockHold);
+      for (int i = 0; i < 2; i++) {
+        final ringP = ((lockElapsed - i*0.08) / 0.3).clamp(0.0, 1.0);
+        if (ringP <= 0 || ringP >= 1) continue;
+        canvas.drawCircle(Offset(cx, symbolY), 10 + ringP * 55,
+          Paint()..color=season.color.withValues(alpha:a*(1-ringP)*0.5)
+                 ..style=PaintingStyle.stroke..strokeWidth=2.5);
+      }
+      _txt(canvas, season.emoji, cx, symbolY,
+        52, season.color.withValues(alpha:a));
+    }
 
     // Hız göstergesi (dönüyor mu?)
     if (!slotDone) {
@@ -343,6 +379,17 @@ class MaxExplosion {
             : 1.0;
 
     final season = kSeasons[selectedSeason];
+
+    // Giriş "pop" efekti — süre aynı kalır (_announceDuration), sadece görsel.
+    final introScale = t < 0.22
+        ? 0.55 + Curves.easeOutBack.transform((t/0.22).clamp(0.0,1.0)) * 0.45
+        : 1.0;
+    final cx = sw/2, cy = sh/2;
+    canvas.save();
+    canvas.translate(cx, cy);
+    canvas.scale(introScale, introScale);
+    canvas.translate(-cx, -cy);
+
     switch (season.key) {
       case 'bomb':    _renderAnnounceBomb(canvas, sw, sh, a);
       case 'ice':     _renderAnnounceIce(canvas, sw, sh, a);
@@ -351,6 +398,23 @@ class MaxExplosion {
       case 'chaos':   _renderAnnounceChaos(canvas, sw, sh, a);
       case 'mystery': _renderAnnounceMystery(canvas, sw, sh, a);
       default:        _renderAnnounceDefault(canvas, sw, sh, a);
+    }
+    canvas.restore();
+
+    // Varış darbesi: kısa beyaz flaş + genişleyen halkalar (süreyi etkilemez)
+    if (t < 0.16) {
+      final flashA = (1 - t/0.16).clamp(0.0, 1.0);
+      canvas.drawRect(Rect.fromLTWH(0,0,sw,sh),
+        Paint()..color=Colors.white.withValues(alpha:flashA*0.35));
+    }
+    if (t < 0.4) {
+      for (int i = 0; i < 2; i++) {
+        final ringP = ((t - i*0.06) / 0.35).clamp(0.0, 1.0);
+        if (ringP <= 0 || ringP >= 1) continue;
+        canvas.drawCircle(Offset(cx, cy), 40 + ringP * 180,
+          Paint()..color=season.color.withValues(alpha:(1-ringP)*0.45)
+                 ..style=PaintingStyle.stroke..strokeWidth=3);
+      }
     }
   }
 
@@ -637,16 +701,30 @@ class MaxExplosion {
 
   void _renderAnnounceDefault(Canvas canvas, double sw, double sh, double a) {
     final cx = sw/2, cy = sh/2;
+    final t = _announceTime;
     final season = kSeasons[selectedSeason];
+    final pulse = math.sin(t * math.pi * 4) * 0.5 + 0.5;
+
     canvas.drawRect(Rect.fromLTWH(0,0,sw,sh),
-      Paint()..color=const Color(0xFF04031A).withValues(alpha:a*0.85));
-    canvas.drawCircle(Offset(cx,cy), 200,
-      Paint()..color=season.color.withValues(alpha:a*0.20)
+      Paint()..color=const Color(0xFF04031A).withValues(alpha:a*0.92));
+
+    // Dönen ışık halkası
+    canvas.save();
+    canvas.translate(cx, cy);
+    canvas.rotate(t * 0.7);
+    canvas.drawCircle(Offset.zero, 130,
+      Paint()..color=season.color.withValues(alpha:a*0.35)
+             ..style=PaintingStyle.stroke..strokeWidth=2);
+    canvas.restore();
+
+    canvas.drawCircle(Offset(cx,cy), 200 * (1 + pulse*0.05),
+      Paint()..color=season.color.withValues(alpha:a*(0.18+pulse*0.08))
              ..maskFilter=const MaskFilter.blur(BlurStyle.normal,60));
-    _txt(canvas, season.emoji, cx, cy-60, 64, season.color.withValues(alpha:a));
-    _txt(canvas, _seasonText(season.key), cx, cy+20,
+
+    _txt(canvas, season.emoji, cx, cy-60, 68, season.color.withValues(alpha:a));
+    _txt(canvas, _seasonText(season.key), cx, cy+24,
       28, season.color.withValues(alpha:a), bold:true, glow:season.color);
-    _txt(canvas, L10n.t('season_starting'), cx, cy+60,
+    _txt(canvas, L10n.t('season_starting'), cx, cy+62,
       14, Colors.white.withValues(alpha:a*0.8), letterSpacing:8);
   }
 
