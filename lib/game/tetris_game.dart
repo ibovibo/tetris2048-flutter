@@ -14,6 +14,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../l10n.dart';
 import '../achievement_manager.dart';
 import '../block_skin_manager.dart';
+import '../daily_quest_manager.dart';
 import '../leaderboard_manager.dart';
 import '../profile_manager.dart';
 import '../stats_manager.dart';
@@ -82,6 +83,7 @@ class TetrisGame extends FlameGame
   int _maxGlowRow = -1;
   int _maxGlowCol = -1;
   int _mergesThisGame = 0;
+  int _seasonsThisMatch = 0;
 
   // Mevsim sistemi
   String? activeSeason; // 'bomb', 'speed', 'ice', 'gravity', 'chaos'
@@ -352,6 +354,7 @@ class TetrisGame extends FlameGame
     _maxGlowRow = -1;
     _maxGlowCol = -1;
     _mergesThisGame = 0;
+    _seasonsThisMatch = 0;
     _currentGameBestCombo = 1;
     _lastXpGained = 0;
     _xpCountTimer = 0.0;
@@ -1320,6 +1323,8 @@ class TetrisGame extends FlameGame
     if (achSeasonKey != null) {
       unawaited(AchievementManager.incrementSeasonCount(achSeasonKey));
     }
+    _seasonsThisMatch++;
+    unawaited(DailyQuestManager.onSeasonExperienced());
     debugPrint('=== activeSeason: $activeSeason ===');
     debugPrint(
       '_startRandomSeason: activeSeason=$activeSeason, pendingIdx=$_pendingSeasonIdx',
@@ -1644,6 +1649,11 @@ class TetrisGame extends FlameGame
       level: ProfileManager.level,
     );
     await LeaderboardManager.submitScore(score);
+    await DailyQuestManager.onMatchEnd(
+      score: score,
+      maxTile: maxTile,
+      seasonsThisMatch: _seasonsThisMatch,
+    );
     _xpCountTimer = 0.0;
   }
 

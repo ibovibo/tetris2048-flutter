@@ -17,7 +17,6 @@ dependencies:
   flutter_svg: ^2.2.4
   image_picker: ^1.0.0
   path_provider: ^2.0.0
-  image_cropper: ^5.0.0
   firebase_core: ^4.12.1
   cloud_firestore: ^6.7.1
   firebase_auth: ^6.5.6

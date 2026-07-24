@@ -15,7 +15,9 @@
       "Bash(screencapture -x /private/tmp/claude-501/-Users-ibrahimenez-tetris2048-flutter/5fe05c57-87bd-489a-9c5e-6f6af88ed14b/scratchpad/screen1.png)",
       "Bash(system_profiler SPDisplaysDataType)",
       "Bash(screencapture -x -D1 /private/tmp/claude-501/-Users-ibrahimenez-tetris2048-flutter/5fe05c57-87bd-489a-9c5e-6f6af88ed14b/scratchpad/screen2.png)",
-      "Bash(osascript -e 'tell application \"System Events\" to tell process \"tetris2048\" to get {name, position, size} of window 1')"
+      "Bash(osascript -e 'tell application \"System Events\" to tell process \"tetris2048\" to get {name, position, size} of window 1')",
+      "Bash(tee /private/tmp/claude-501/-Users-ibrahimenez-tetris2048-flutter/5fe05c57-87bd-489a-9c5e-6f6af88ed14b/scratchpad/flutter_run2.log)",
+      "Bash(osascript -e 'tell application \"System Events\" to get {name of processes}')"
     ],
     "additionalDirectories": [
       "/private/tmp"

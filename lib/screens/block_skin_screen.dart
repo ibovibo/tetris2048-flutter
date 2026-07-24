@@ -1,16 +1,16 @@
 import 'dart:io';
+import 'dart:typed_data';
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:image_cropper/image_cropper.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
 
 import '../block_skin_manager.dart';
 import '../l10n.dart';
 import '../widgets/block_display.dart';
+import 'manual_crop_screen.dart';
 
 class BlockSkinScreen extends StatefulWidget {
   const BlockSkinScreen({super.key});
@@ -79,7 +79,7 @@ class _BlockSkinScreenState extends State<BlockSkinScreen> {
     );
   }
 
-  // ── Seç + kare kırp + kaydet ─────────────────────────────────────────────
+  // ── Seç + manuel kırp (sürükle/yakınlaştır) + kaydet ─────────────────────
 
   Future<void> _pickAndCrop(SpecialBlockType type, ImageSource source) async {
     final picker = ImagePicker();
@@ -89,42 +89,18 @@ class _BlockSkinScreenState extends State<BlockSkinScreen> {
       maxHeight: 1024,
     );
     if (picked == null) return;
+    if (!mounted) return;
 
-    String finalPath;
-    try {
-      final CroppedFile? cropped = await ImageCropper().cropImage(
-        sourcePath: picked.path,
-        aspectRatio: const CropAspectRatio(ratioX: 1, ratioY: 1),
-        compressQuality: 85,
-        maxWidth: 512,
-        maxHeight: 512,
-        uiSettings: [
-          AndroidUiSettings(
-            toolbarTitle: L10n.t('crop_title'),
-            toolbarColor: const Color(0xFF1E3A8A),
-            toolbarWidgetColor: Colors.white,
-            lockAspectRatio: true,
-            hideBottomControls: false,
-          ),
-          IOSUiSettings(
-            title: L10n.t('crop_title'),
-            aspectRatioLockEnabled: true,
-          ),
-        ],
-      );
-      if (cropped == null) return; // kullanıcı kırpmayı iptal etti
-      finalPath = cropped.path;
-    } on MissingPluginException {
-      // image_cropper masaüstünde (macOS/Windows/Linux) desteklenmiyor —
-      // test amaçlı, seçilen görsel kırpılmadan doğrudan kullanılır.
-      finalPath = picked.path;
-    }
+    final Uint8List? cropped = await Navigator.of(context).push<Uint8List>(
+      MaterialPageRoute(builder: (_) => ManualCropScreen(imagePath: picked.path)),
+    );
+    if (cropped == null) return; // kullanıcı kırpmayı iptal etti
 
     setState(() => _busy = true);
     try {
       final appDir = await getApplicationDocumentsDirectory();
       final savedPath = '${appDir.path}/block_${type.name}.png';
-      await File(finalPath).copy(savedPath);
+      await File(savedPath).writeAsBytes(cropped);
       await BlockSkinManager.setSkin(type, savedPath);
     } finally {
       if (mounted) setState(() => _busy = false);

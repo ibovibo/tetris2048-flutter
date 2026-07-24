@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'achievement_manager.dart';
 import 'avatar_manager.dart';
 import 'block_skin_manager.dart';
+import 'daily_quest_manager.dart';
 import 'game/sound_manager.dart';
 import 'l10n.dart';
 import 'life_manager.dart';
@@ -23,6 +24,7 @@ void main() async {
   await StatsManager.load();
   await AvatarManager.load();
   await BlockSkinManager.load();
+  await DailyQuestManager.load();
   await AchievementManager.load();
   await LifeManager.load();
   await SoundManager.init();
