@@ -292,8 +292,11 @@ class _MenuScreenState extends State<MenuScreen>
               child: GestureDetector(
                 behavior: HitTestBehavior.opaque,
                 onTap: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const DailyQuestScreen()),
+                  showDialog(
+                    context: context,
+                    barrierColor: Colors.transparent,
+                    barrierDismissible: false,
+                    builder: (_) => const DailyQuestScreen(),
                   );
                 },
                 child: Container(

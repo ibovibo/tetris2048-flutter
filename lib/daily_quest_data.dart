@@ -35,11 +35,32 @@ String formatQuestNumber(int value) {
   return buf.toString();
 }
 
+/// Skor gibi büyük sayıları kısaltır (100000 -> "100K", 1000000 -> "1M").
+String formatShortNumber(int value) {
+  double v;
+  String suffix;
+  if (value >= 1000000000) {
+    v = value / 1000000000;
+    suffix = 'B';
+  } else if (value >= 1000000) {
+    v = value / 1000000;
+    suffix = 'M';
+  } else if (value >= 1000) {
+    v = value / 1000;
+    suffix = 'K';
+  } else {
+    return value.toString();
+  }
+  var s = v.toStringAsFixed(1);
+  if (s.endsWith('.0')) s = s.substring(0, s.length - 2);
+  return '$s$suffix';
+}
+
 String questDescription(QuestTemplate t) {
   final target = formatQuestNumber(t.target);
   switch (t.type) {
     case QuestType.reachScore:
-      return L10n.t('quest_reach_score').replaceAll('{target}', target);
+      return L10n.t('quest_reach_score').replaceAll('{target}', formatShortNumber(t.target));
     case QuestType.reachBlock:
       return L10n.t('quest_reach_block').replaceAll('{target}', target);
     case QuestType.playMatches:
