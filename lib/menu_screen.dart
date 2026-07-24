@@ -389,7 +389,7 @@ class _MenuScreenState extends State<MenuScreen>
             Positioned(
               top: size.height * 0.1,
               left: size.width * 0.03,
-              width: size.width * 0.454,
+              width: size.width * 0.4767,
               child: GestureDetector(
                 behavior: HitTestBehavior.opaque,
                 onTap: () {
@@ -415,12 +415,12 @@ class _MenuScreenState extends State<MenuScreen>
                 ),
               ),
             ),
-          // Can göstergesi — profil widget'ının simetriğinde, sağ üstte
+          // Can göstergesi — profil widget'ının altında
           if (_selectedTabIndex == 2)
             Positioned(
-              top: size.height * 0.1,
-              right: size.width * 0.03,
-              width: size.width * 0.38,
+              top: size.height * 0.1 + size.width * 0.4767 * (330 / 920) + size.height * 0.005,
+              left: size.width * 0.03,
+              width: size.width * 0.294,
               child: LifeBarWidget(
                 currentLives: LifeManager.currentLives,
                 maxLives: LifeManager.maxLives,
