@@ -201,6 +201,11 @@ class _MenuScreenState extends State<MenuScreen>
       builder: (context, constraints) {
         final h = constraints.maxHeight;
         final w = constraints.maxWidth;
+        // Can barının alt kenarı (profil widget'ının altındaki LifeBarWidget ile aynı hesap).
+        final canBarBottom = h * 0.1 +
+            w * 0.4767 * (330 / 920) +
+            h * 0.005 +
+            w * 0.294 * (597 / 1223);
         return Stack(
           children: [
             Positioned.fill(
@@ -263,7 +268,7 @@ class _MenuScreenState extends State<MenuScreen>
             ),
             // Blok görselleri özelleştirme girişi
             Positioned(
-              top: h * 0.10,
+              top: canBarBottom + w * 0.02,
               right: w * 0.04,
               child: GestureDetector(
                 behavior: HitTestBehavior.opaque,
@@ -287,7 +292,7 @@ class _MenuScreenState extends State<MenuScreen>
             ),
             // Günlük görevler girişi
             Positioned(
-              top: h * 0.10 + w * 0.13 + w * 0.03,
+              top: canBarBottom + w * 0.02 + w * 0.13 + w * 0.03,
               right: w * 0.04,
               child: GestureDetector(
                 behavior: HitTestBehavior.opaque,
@@ -299,22 +304,15 @@ class _MenuScreenState extends State<MenuScreen>
                     builder: (_) => const DailyQuestScreen(),
                   );
                 },
-                child: Container(
+                child: SizedBox(
                   width: w * 0.13,
                   height: w * 0.13,
-                  constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: const Color(0xFF1E3A8A).withValues(alpha: 0.85),
-                    border: Border.all(color: Colors.white, width: 1.5),
-                    boxShadow: const [
-                      BoxShadow(color: Colors.black45, blurRadius: 6, offset: Offset(0, 2)),
-                    ],
-                  ),
-                  child: Icon(
-                    Icons.checklist_rounded,
-                    color: Colors.white,
-                    size: w * 0.065,
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+                    child: Image.asset(
+                      'assets/images/gunlukgorevbuton.png',
+                      fit: BoxFit.contain,
+                    ),
                   ),
                 ),
               ),

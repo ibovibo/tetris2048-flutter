@@ -232,7 +232,7 @@ class _DailyQuestScreenState extends State<DailyQuestScreen> {
         Positioned(
           left: w * 0.18,
           right: w * 0.18,
-          top: h * 0.085 - h * 0.019,
+          top: h * 0.085 - h * 0.029,
           child: FittedBox(
             fit: BoxFit.scaleDown,
             child: Text(
@@ -240,7 +240,7 @@ class _DailyQuestScreenState extends State<DailyQuestScreen> {
               textAlign: TextAlign.center,
               textScaler: TextScaler.noScaling,
               style: GoogleFonts.poppins(
-                fontSize: h * 0.030,
+                fontSize: h * 0.0324,
                 fontWeight: FontWeight.w900,
                 color: Colors.white,
                 letterSpacing: 0.3,
@@ -309,7 +309,7 @@ class _DailyQuestScreenState extends State<DailyQuestScreen> {
               L10n.t('quest_resets_in').replaceAll('{time}', _formatCountdown(_timeLeft)),
               textScaler: TextScaler.noScaling,
               style: GoogleFonts.poppins(
-                fontSize: h * 0.021,
+                fontSize: h * 0.02536,
                 fontWeight: FontWeight.w900,
                 color: const Color(0xFF1E3A8A),
               ),
