@@ -22,7 +22,8 @@
       "Bash(sips -g pixelWidth -g pixelHeight /Users/ibrahimenez/tetris2048-flutter/assets/ui/gunlukgorev.png)",
       "Bash(sips -g pixelWidth -g pixelHeight /Users/ibrahimenez/tetris2048-flutter/assets/images/gunlukgorev.png)",
       "Bash(python3)",
-      "Bash(sips -g pixelWidth -g pixelHeight \"altın.png\")"
+      "Bash(sips -g pixelWidth -g pixelHeight \"altın.png\")",
+      "Bash(sips -g pixelWidth -g pixelHeight altınsayac.png elmassayac.png)"
     ],
     "additionalDirectories": [
       "/private/tmp"

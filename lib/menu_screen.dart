@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter/material.dart';
 
 import 'avatar_manager.dart';
+import 'currency_manager.dart';
 import 'game/sound_manager.dart';
 import 'life_manager.dart';
 import 'screens/achievements_screen.dart';
@@ -17,6 +18,7 @@ import 'screens/block_skin_screen.dart';
 import 'screens/daily_quest_screen.dart';
 import 'screens/profile_edit_screen.dart';
 import 'settings_screen.dart';
+import 'widgets/currency_counter_widget.dart';
 import 'widgets/life_bar_widget.dart';
 import 'widgets/no_lives_popup.dart';
 import 'widgets/profile_widget.dart';
@@ -302,7 +304,7 @@ class _MenuScreenState extends State<MenuScreen>
                     barrierColor: Colors.transparent,
                     barrierDismissible: false,
                     builder: (_) => const DailyQuestScreen(),
-                  );
+                  ).then((_) => setState(() {}));
                 },
                 child: SizedBox(
                   width: w * 0.13,
@@ -441,6 +443,50 @@ class _MenuScreenState extends State<MenuScreen>
             left: 0,
             right: 0,
             child: _buildBottomNav(context),
+          ),
+          // Altın / elmas sayaçları — tüm sekmelerde en üstte sabit görünür.
+          Positioned(
+            top: size.height * 0.02,
+            left: size.width * 0.03,
+            right: size.width * 0.03,
+            child: Row(
+              children: [
+                Expanded(
+                  child: FractionallySizedBox(
+                    widthFactor: 0.6,
+                    alignment: Alignment.centerLeft,
+                    child: CurrencyCounterWidget(
+                      assetPath: 'assets/images/altınsayac.png',
+                      value: CurrencyManager.gold,
+                      textColor: const Color(0xFFB45309),
+                      boxLeft: 0.399,
+                      boxTop: 0.184,
+                      boxRight: 0.684,
+                      boxBottom: 0.724,
+                      textAlignment: const Alignment(-0.06, 0.125),
+                    ),
+                  ),
+                ),
+                SizedBox(width: size.width * 0.03),
+                Expanded(
+                  child: FractionallySizedBox(
+                    widthFactor: 0.6,
+                    alignment: Alignment.centerRight,
+                    child: CurrencyCounterWidget(
+                      assetPath: 'assets/images/elmassayac.png',
+                      value: CurrencyManager.diamond,
+                      textColor: const Color(0xFF1E3A8A),
+                      boxLeft: 0.443,
+                      boxTop: 0.272,
+                      boxRight: 0.687,
+                      boxBottom: 0.728,
+                      textAlignment: const Alignment(-0.11, 0),
+                      fontScale: 1.38,
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
           // Profil widget'ı — cihaz yüksekliğinin %10'unda, nav bar'ın üzerinde
           if (_selectedTabIndex == 2)
