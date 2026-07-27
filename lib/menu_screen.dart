@@ -268,55 +268,59 @@ class _MenuScreenState extends State<MenuScreen>
                 ),
               ),
             ),
-            // Blok görselleri özelleştirme girişi
+            // Blok görselleri özelleştirme ve günlük görevler girişleri — can barının altında, yan yana
             Positioned(
               top: canBarBottom + w * 0.02,
-              right: w * 0.04,
-              child: GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const BlockSkinScreen()),
-                  );
-                },
-                child: SizedBox(
-                  width: w * 0.13,
-                  height: w * 0.13,
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
-                    child: Image.asset(
-                      'assets/images/gorsel.png',
-                      fit: BoxFit.contain,
+              left: w * 0.03,
+              child: Row(
+                children: [
+                  GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const BlockSkinScreen(),
+                        ),
+                      );
+                    },
+                    child: SizedBox(
+                      width: w * 0.13,
+                      height: w * 0.13,
+                      child: ConstrainedBox(
+                        constraints:
+                            const BoxConstraints(minWidth: 44, minHeight: 44),
+                        child: Image.asset(
+                          'assets/images/gorsel.png',
+                          fit: BoxFit.contain,
+                        ),
+                      ),
                     ),
                   ),
-                ),
-              ),
-            ),
-            // Günlük görevler girişi
-            Positioned(
-              top: canBarBottom + w * 0.02 + w * 0.13 + w * 0.03,
-              right: w * 0.04,
-              child: GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: () {
-                  showDialog(
-                    context: context,
-                    barrierColor: Colors.transparent,
-                    barrierDismissible: false,
-                    builder: (_) => const DailyQuestScreen(),
-                  ).then((_) => setState(() {}));
-                },
-                child: SizedBox(
-                  width: w * 0.13,
-                  height: w * 0.13,
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
-                    child: Image.asset(
-                      'assets/images/gunlukgorevbuton.png',
-                      fit: BoxFit.contain,
+                  SizedBox(width: w * 0.03),
+                  GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () {
+                      showDialog(
+                        context: context,
+                        barrierColor: Colors.transparent,
+                        barrierDismissible: false,
+                        builder: (_) => const DailyQuestScreen(),
+                      ).then((_) => setState(() {}));
+                    },
+                    child: SizedBox(
+                      width: w * 0.13,
+                      height: w * 0.13,
+                      child: ConstrainedBox(
+                        constraints:
+                            const BoxConstraints(minWidth: 44, minHeight: 44),
+                        child: Image.asset(
+                          'assets/images/gunlukgorevbuton.png',
+                          fit: BoxFit.contain,
+                        ),
+                      ),
                     ),
                   ),
-                ),
+                ],
               ),
             ),
           ],
@@ -444,50 +448,51 @@ class _MenuScreenState extends State<MenuScreen>
             right: 0,
             child: _buildBottomNav(context),
           ),
-          // Altın / elmas sayaçları — tüm sekmelerde en üstte sabit görünür.
-          Positioned(
-            top: size.height * 0.02,
-            left: size.width * 0.03,
-            right: size.width * 0.03,
-            child: Row(
-              children: [
-                Expanded(
-                  child: FractionallySizedBox(
-                    widthFactor: 0.6,
-                    alignment: Alignment.centerLeft,
-                    child: CurrencyCounterWidget(
-                      assetPath: 'assets/images/altınsayac.png',
-                      value: CurrencyManager.gold,
-                      textColor: const Color(0xFFB45309),
-                      boxLeft: 0.399,
-                      boxTop: 0.184,
-                      boxRight: 0.684,
-                      boxBottom: 0.724,
-                      textAlignment: const Alignment(-0.06, 0.125),
+          // Altın / elmas sayaçları — sadece start (play) sekmesinde görünür.
+          if (_selectedTabIndex == 2)
+            Positioned(
+              top: size.height * 0.02,
+              left: size.width * 0.03,
+              right: size.width * 0.03,
+              child: Row(
+                children: [
+                  Expanded(
+                    child: FractionallySizedBox(
+                      widthFactor: 0.6,
+                      alignment: Alignment.centerLeft,
+                      child: CurrencyCounterWidget(
+                        assetPath: 'assets/images/altınsayac.png',
+                        value: CurrencyManager.gold,
+                        textColor: const Color(0xFFB45309),
+                        boxLeft: 0.399,
+                        boxTop: 0.184,
+                        boxRight: 0.684,
+                        boxBottom: 0.724,
+                        textAlignment: const Alignment(-0.06, 0.125),
+                      ),
                     ),
                   ),
-                ),
-                SizedBox(width: size.width * 0.03),
-                Expanded(
-                  child: FractionallySizedBox(
-                    widthFactor: 0.6,
-                    alignment: Alignment.centerRight,
-                    child: CurrencyCounterWidget(
-                      assetPath: 'assets/images/elmassayac.png',
-                      value: CurrencyManager.diamond,
-                      textColor: const Color(0xFF1E3A8A),
-                      boxLeft: 0.443,
-                      boxTop: 0.272,
-                      boxRight: 0.687,
-                      boxBottom: 0.728,
-                      textAlignment: const Alignment(-0.11, 0),
-                      fontScale: 1.38,
+                  SizedBox(width: size.width * 0.03),
+                  Expanded(
+                    child: FractionallySizedBox(
+                      widthFactor: 0.6,
+                      alignment: Alignment.centerRight,
+                      child: CurrencyCounterWidget(
+                        assetPath: 'assets/images/elmassayac.png',
+                        value: CurrencyManager.diamond,
+                        textColor: const Color(0xFF1E3A8A),
+                        boxLeft: 0.443,
+                        boxTop: 0.272,
+                        boxRight: 0.687,
+                        boxBottom: 0.728,
+                        textAlignment: const Alignment(-0.11, 0),
+                        fontScale: 1.38,
+                      ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
           // Profil widget'ı — cihaz yüksekliğinin %10'unda, nav bar'ın üzerinde
           if (_selectedTabIndex == 2)
             Positioned(
