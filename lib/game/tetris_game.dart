@@ -867,8 +867,10 @@ class TetrisGame extends FlameGame
       _volcanoSlideOffset = 0.0;
     }
 
-    // Mevsim turu azalt (volcano için _endSeason _doVolcanoShift'e bırakıldı)
-    if (seasonTurnsLeft > 0) {
+    // Mevsim turu azalt (volcano için _endSeason _doVolcanoShift'e bırakıldı;
+    // bomba/kaos/evrim mevsimleri tur sayısı değil işlev sayısı ile biter)
+    const seasonsByActionCount = {'bomb', 'chaos', 'evolution'};
+    if (seasonTurnsLeft > 0 && !seasonsByActionCount.contains(activeSeason)) {
       seasonTurnsLeft--;
       if (seasonTurnsLeft == 0 && activeSeason != 'volcano') {
         unawaited(_endSeason());
@@ -1351,7 +1353,8 @@ class TetrisGame extends FlameGame
             : activeSeason == 'voltage'
             ? 6
             : 10);
-    _seasonBombTimer = 2.0;
+    // 0 → ilk bomba/kaos mevsim başlar başlamaz tetiklenir, bekleme yok
+    _seasonBombTimer = 0;
 
     if (activeSeason == 'gravity') {
       _gravityReversed = true;
@@ -1383,7 +1386,8 @@ class TetrisGame extends FlameGame
     }
     if (activeSeason == 'evolution') {
       _evolutionSeasonTimer = 0.0;
-      _evolutionSeasonInterval = 2.0 + _rng.nextDouble();
+      // 0 → ilk evrim döngüsü mevsim başlar başlamaz tetiklenir, bekleme yok
+      _evolutionSeasonInterval = 0.0;
       _evolutionSeasonQueue.clear();
     }
     if (activeSeason == 'voltage') {
@@ -1735,6 +1739,16 @@ class TetrisGame extends FlameGame
         for (final e in events) {
           _addScore(e.baseScore * combo);
         }
+        // Bomba/kaos mevsimi: tur sayısı yerine kaç kez patladığı/takas
+        // olduğu sayılır — hızlı oynayınca hiç patlamama, yavaş oynayınca
+        // aşırı patlama sorununu önler.
+        if ((activeSeason == 'bomb' && d.type == kBomb) ||
+            (activeSeason == 'chaos' && d.type == kChaos)) {
+          if (seasonTurnsLeft > 0) {
+            seasonTurnsLeft--;
+            if (seasonTurnsLeft == 0) unawaited(_endSeason());
+          }
+        }
       }
     }
 
@@ -1884,6 +1898,15 @@ class TetrisGame extends FlameGame
         for (final e in evoEvents) {
           _addScore(e.baseScore);
         }
+        // Evrim mevsimi: tur sayısı yerine kaç kez evrim gerçekleştiği
+        // sayılır (her tekli evrim = bomba/kaos mevsimindeki tek patlama
+        // ile aynı ağırlıkta bir "işlev").
+        if (_evolutionIsSeasonCycle && activeSeason == 'evolution') {
+          if (seasonTurnsLeft > 0) {
+            seasonTurnsLeft--;
+            if (seasonTurnsLeft == 0) unawaited(_endSeason());
+          }
+        }
       }
 
       // Flash sönme
@@ -1896,7 +1919,7 @@ class TetrisGame extends FlameGame
         _evolutionActive = false;
         _evolutionTimer = 0.0;
         _evolutionTargets = [];
-        if (_evolutionSeasonQueue.isNotEmpty) {
+        if (_evolutionSeasonQueue.isNotEmpty && activeSeason == 'evolution') {
           final next = _evolutionSeasonQueue.removeAt(0);
           _startEvolution(next.$1, next.$2);
         }
