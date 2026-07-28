@@ -94,6 +94,9 @@ class TetrisGame extends FlameGame
   int _pendingSeasonIdx = 0;
   bool _mysteryActive = false;
   bool _darknessActive = false;
+  // Mevsim başladığında ızgara üstündeki banner'ın kısa süreli vurgu efekti
+  double _seasonAnnounceTimer = 0.0;
+  static const double _seasonAnnounceDuration = 1.6;
 
   // Bar bozulma / rastgele mevsim devri (1M blok sonrası endgame)
   bool isBarBroken = false;
@@ -363,6 +366,7 @@ class TetrisGame extends FlameGame
     _secondLastSeason = null;
     seasonTurnsLeft = 0;
     _seasonBombTimer = 0;
+    _seasonAnnounceTimer = 0.0;
     _mysteryActive = false;
     _darknessActive = false;
     isBarBroken = false;
@@ -1327,6 +1331,7 @@ class TetrisGame extends FlameGame
     }
     _seasonsThisMatch++;
     unawaited(DailyQuestManager.onSeasonExperienced());
+    _seasonAnnounceTimer = _seasonAnnounceDuration;
     debugPrint('=== activeSeason: $activeSeason ===');
     debugPrint(
       '_startRandomSeason: activeSeason=$activeSeason, pendingIdx=$_pendingSeasonIdx',
@@ -1670,6 +1675,9 @@ class TetrisGame extends FlameGame
     screenShake = (screenShake - dt * 2.5).clamp(0, 1);
     if (_pauseSfxFlash > 0) _pauseSfxFlash -= dt * 15;
     if (_pauseMusicFlash > 0) _pauseMusicFlash -= dt * 15;
+    if (_seasonAnnounceTimer > 0) {
+      _seasonAnnounceTimer = math.max(0, _seasonAnnounceTimer - dt);
+    }
     particles.update(dt);
     particles.seasonBg.update(dt, boardX, boardY, kCols * kCell, kRows * kCell);
 
@@ -3112,8 +3120,6 @@ class TetrisGame extends FlameGame
 
   void _drawUI(Canvas canvas) {
     final bw = kCols * kCell;
-    final rpW = 80.0;
-    final rpX = boardX + bw - 4;
     final sw = bw * 0.44;
     final ssBw = bw * 0.44;
     final gap = bw * 0.12;
@@ -3314,7 +3320,7 @@ class TetrisGame extends FlameGame
       }
     }
 
-    // === SAĞ PANEL: MEVSİM ===
+    // === IZGARA ÜSTÜ BANNER: MEVSİM ===
     if (activeSeason != null && seasonTurnsLeft > 0) {
       final si = kSeasons.firstWhere(
         (s) => s.key == activeSeason,
@@ -3322,18 +3328,57 @@ class TetrisGame extends FlameGame
       );
       final sColor = si.color;
       final pulse = 0.7 + sin(animTime * 3) * 0.3;
-      const siH = 54.0;
-      final siY = boardY + 123;
+      final announcing = _seasonAnnounceTimer > 0;
+      const bannerH = 32.0;
+      const bannerFontSize = 9.0;
+      final bannerLabel =
+          '${si.emoji} ${L10n.t('season_${si.key}')}  ·  $seasonTurnsLeft ${L10n.t('turns')}';
+      final bannerTp = TextPainter(
+        text: TextSpan(
+          text: bannerLabel,
+          style: GoogleFonts.poppins(
+            textStyle: const TextStyle(
+              fontSize: bannerFontSize,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ),
+        textDirection: TextDirection.ltr,
+      )..layout();
+      const bannerPadX = 14.0;
+      final bannerW = bannerTp.width + bannerPadX * 2;
+      final bannerX = boardX + (bw - bannerW) / 2;
+      // Yerçekimi mevsiminde ızgara ters döndüğü için banner alta alınır
+      final bannerY = activeSeason == 'gravity'
+          ? boardY + kRows * kCell - bannerH - 6
+          : boardY + 6;
+
+      // Mevsim yeni başladı — kısa süreli tam ızgara flaşı, oyuncu fark etsin
+      if (announcing) {
+        final introProgress =
+            (1 - _seasonAnnounceTimer / _seasonAnnounceDuration).clamp(
+          0.0,
+          1.0,
+        );
+        final flashA = (1 - introProgress) * 0.3;
+        if (flashA > 0.01) {
+          canvas.drawRect(
+            Rect.fromLTWH(boardX, boardY, bw, kRows * kCell),
+            Paint()..color = sColor.withValues(alpha: flashA),
+          );
+        }
+      }
+
       canvas.drawRRect(
         RRect.fromRectAndRadius(
-          Rect.fromLTWH(rpX, siY, rpW, siH),
+          Rect.fromLTWH(bannerX, bannerY, bannerW, bannerH),
           const Radius.circular(10),
         ),
-        Paint()..color = sColor.withValues(alpha: 0.15),
+        Paint()..color = Colors.black.withValues(alpha: 0.75),
       );
       canvas.drawRRect(
         RRect.fromRectAndRadius(
-          Rect.fromLTWH(rpX, siY, rpW, siH),
+          Rect.fromLTWH(bannerX, bannerY, bannerW, bannerH),
           const Radius.circular(10),
         ),
         Paint()
@@ -3343,20 +3388,11 @@ class TetrisGame extends FlameGame
       );
       _drawTextCentered(
         canvas,
-        '${si.emoji} ${L10n.t('season_${si.key}')}',
-        rpX + rpW / 2,
-        siY + 18,
-        8,
-        sColor.withValues(alpha: pulse),
-        bold: true,
-      );
-      _drawTextCentered(
-        canvas,
-        '$seasonTurnsLeft ${L10n.t('turns')}',
-        rpX + rpW / 2,
-        siY + 36,
-        9,
-        sColor.withValues(alpha: pulse),
+        bannerLabel,
+        bannerX + bannerW / 2,
+        bannerY + bannerH / 2,
+        bannerFontSize,
+        Colors.white,
         bold: true,
       );
     }
