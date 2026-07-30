@@ -252,6 +252,15 @@ class PieceGenerator {
     return _buildNormal(size, score, moveCount);
   }
 
+  static Piece singleTwo() {
+    return Piece(
+      shape: [
+        [2],
+      ],
+      x: 2,
+    );
+  }
+
   static Piece _single(int type) {
     return Piece(
       shape: [

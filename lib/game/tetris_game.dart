@@ -402,11 +402,7 @@ class TetrisGame extends FlameGame
     popCells.clear();
     _pendingDrops.clear();
 
-    currentPiece = PieceGenerator.generate(
-      score,
-      moveCount,
-      season: activeSeason,
-    );
+    currentPiece = PieceGenerator.singleTwo();
     if (_gravityReversed) {
       currentPiece.y = kRows - currentPiece.shape.length;
     }
