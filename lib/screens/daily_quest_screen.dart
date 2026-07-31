@@ -213,14 +213,15 @@ class _DailyQuestScreenState extends State<DailyQuestScreen> {
 
   Widget _buildPopupContent(double w, double h) {
     final quests = DailyQuestManager.todaysQuests;
-    final realQuests = quests.where((q) => q.template.type != QuestType.watchAd).toList();
-    final completed = realQuests.where((q) => q.completed).length;
-    final total = realQuests.length;
+    final total = DailyQuestManager.barRequiredCompletions;
+    final completed = quests.where((q) => q.completed).length.clamp(0, total);
     final barProgress = total == 0 ? 0.0 : (completed / total).clamp(0.0, 1.0);
 
     // Ölçülen asset koordinatları (1024x1536 kaynak görsel üzerinden yüzdesel).
-    const barLeft = 0.114, barRight = 0.798, barCenterY = 0.229, barHeight = 0.046;
+    const barLeft = 0.114, barRight = 0.79, barCenterY = 0.229, barHeight = 0.046;
     const whiteLeft = 0.07, whiteRight = 0.93, whiteTop = 0.295, whiteBottom = 0.91;
+    // Asset üzerindeki elmas ikonunun konumu (bar sağında).
+    const diamondLeft = 0.7265, diamondTop = 0.1578, diamondRight = 0.9375, diamondBottom = 0.2914;
 
     return Stack(
       children: [
@@ -283,6 +284,15 @@ class _DailyQuestScreenState extends State<DailyQuestScreen> {
               ],
             ),
           ),
+        ),
+
+        // Elmas ikonu — asset üzerindeki hazır ikonun üzerine eklenen görsel.
+        Positioned(
+          left: w * diamondLeft,
+          right: w * (1 - diamondRight),
+          top: h * diamondTop,
+          bottom: h * (1 - diamondBottom),
+          child: Image.asset('assets/images/elmas.png', fit: BoxFit.contain),
         ),
 
         // Görev listesi (beyaz alan)

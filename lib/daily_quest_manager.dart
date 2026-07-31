@@ -39,36 +39,56 @@ class DailyQuest {
 }
 
 /// Uygulama ön planda kaldığı süreyi dakika bazında activeTime görevine ekler.
+/// Gerçek zaman damgası farkıyla biriktirir; kısa bir bildirim/kilit ekranı
+/// kesintisinde önceki periyodik-timer yaklaşımı o anki dakikayı sıfırdan
+/// başlatıp tüm ilerlemeyi kaybediyordu (sadece kesintisiz maç oynanışında
+/// dakika doluyormuş gibi görünüyordu). Artık kesinti olsa da geçen saniyeler
+/// _pendingSeconds'ta birikir, kaybolmaz.
 /// NOT: Uygulama açık bırakılırsa dolar (AFK sömürüsüne açık) — MVP için kabul edilebilir.
 class _AppLifecycleTracker with WidgetsBindingObserver {
   Timer? _timer;
   bool _started = false;
+  DateTime? _resumedAt;
+  int _pendingSeconds = 0;
 
   void start() {
     if (_started) return;
     _started = true;
     WidgetsBinding.instance.addObserver(this);
-    _startTimer();
+    _onResume();
   }
 
-  void _startTimer() {
+  void _onResume() {
+    _resumedAt = DateTime.now();
     _timer?.cancel();
-    _timer = Timer.periodic(const Duration(minutes: 1), (_) {
-      DailyQuestManager.addActiveMinutes(1);
-    });
+    _timer = Timer.periodic(const Duration(seconds: 30), (_) => _flush());
   }
 
-  void _stopTimer() {
+  void _onPause() {
+    _flush();
     _timer?.cancel();
     _timer = null;
+  }
+
+  void _flush() {
+    final resumedAt = _resumedAt;
+    if (resumedAt == null) return;
+    final now = DateTime.now();
+    _pendingSeconds += now.difference(resumedAt).inSeconds;
+    _resumedAt = now;
+    if (_pendingSeconds >= 60) {
+      final minutes = _pendingSeconds ~/ 60;
+      _pendingSeconds -= minutes * 60;
+      DailyQuestManager.addActiveMinutes(minutes);
+    }
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      _startTimer();
+      _onResume();
     } else {
-      _stopTimer();
+      _onPause();
     }
   }
 }
@@ -76,6 +96,10 @@ class _AppLifecycleTracker with WidgetsBindingObserver {
 class DailyQuestManager {
   static List<DailyQuest> todaysQuests = [];
   static String currentDayId = '';
+  // Günün tüm görevleri (reklam dahil) tamamlanınca bir kez elmas verilir.
+  static bool dailyBonusClaimed = false;
+  // 6 görevden (5 gerçek + reklam) 5'i tamamlanınca bar dolar — hepsi şart değil.
+  static const int barRequiredCompletions = 5;
 
   static final _lifecycleTracker = _AppLifecycleTracker();
   static final Random _rng = Random();
@@ -105,6 +129,7 @@ class DailyQuestManager {
       if (loaded.isNotEmpty) {
         todaysQuests = loaded;
         currentDayId = today;
+        dailyBonusClaimed = prefs.getBool('quest_bonus_claimed') ?? false;
       } else {
         generateDailyQuests();
       }
@@ -112,6 +137,7 @@ class DailyQuestManager {
       generateDailyQuests();
     }
     await _persist();
+    await _checkDailyBonus();
     _lifecycleTracker.start();
   }
 
@@ -119,6 +145,7 @@ class DailyQuestManager {
   // 2 orta, 1 zor) ve o zorluktaki seçeneklerden rastgele bir template,
   // + sabit reklam görevi.
   static void generateDailyQuests() {
+    dailyBonusClaimed = false;
     const realTypes = [
       QuestType.reachScore,
       QuestType.reachBlock,
@@ -160,6 +187,7 @@ class DailyQuestManager {
       'quest_data',
       jsonEncode(todaysQuests.map((q) => q.toJson()).toList()),
     );
+    await prefs.setBool('quest_bonus_claimed', dailyBonusClaimed);
   }
 
   // Gün değiştiyse (cihaz tarihi ilerlediyse) yeni görevleri üretir.
@@ -245,6 +273,21 @@ class DailyQuestManager {
     if (!q.completed && q.progress >= q.template.target) {
       q.completed = true;
       await CurrencyManager.addGold(q.template.goldReward);
+      await _checkDailyBonus();
+    }
+  }
+
+  // Bar dolduğunda (barRequiredCompletions kadar görev tamamlandığında) bir
+  // kez elmas verir. Sadece _checkAndComplete içinden değil, load() içinden
+  // de çağrılır — aksi halde görevler bu özellik eklenmeden önce zaten
+  // tamamlanmış olsa (yeni bir false->true geçişi hiç yaşanmadığından) bonus
+  // hiçbir zaman tetiklenmezdi.
+  static Future<void> _checkDailyBonus() async {
+    if (!dailyBonusClaimed &&
+        todaysQuests.where((e) => e.completed).length >= barRequiredCompletions) {
+      dailyBonusClaimed = true;
+      await CurrencyManager.addDiamond(1);
+      await _persist();
     }
   }
 

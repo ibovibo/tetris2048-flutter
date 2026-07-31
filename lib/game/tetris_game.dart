@@ -1771,7 +1771,7 @@ class TetrisGame extends FlameGame
         if (v > 0 && !isObstacle(v) && v > curMax) curMax = v;
       }
     }
-    if (curMax > 0) maxTile = curMax;
+    if (curMax > maxTile) maxTile = curMax;
 
     // Aynı değere sahip birden fazla blok varsa efekt sadece tekinde
     // gösterilsin — mevcut sahip hâlâ geçerliyse korunur, değilse
