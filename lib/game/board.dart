@@ -196,15 +196,6 @@ class Board {
     }
     return scoreVal.round();
   }
-
-  int _getMultiplier(int r, int c, List<MultiplierLine> lines) {
-    int best = 1;
-    for (final ml in lines) {
-      final hit = ml.isRow ? r == ml.index : c == ml.index;
-      if (hit && ml.mult > best) best = ml.mult;
-    }
-    return best;
-  }
 }
 
 class MergeEvent {

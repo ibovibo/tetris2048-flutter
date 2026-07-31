@@ -3,8 +3,6 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:image_picker/image_picker.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../avatar_manager.dart';
@@ -86,72 +84,6 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
       if (text.isNotEmpty) _userName = text;
       _isEditingName = false;
     });
-  }
-
-  Future<void> _showAvatarPicker() async {
-    await showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (ctx) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(Icons.photo_library_rounded,
-                  color: Color(0xFF1E3A8A)),
-              title: Text('Galeriden Seç',
-                  style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
-              onTap: () async {
-                Navigator.pop(ctx);
-                await _pickImage(ImageSource.gallery);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.camera_alt_rounded,
-                  color: Color(0xFF1E3A8A)),
-              title: Text('Fotoğraf Çek',
-                  style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
-              onTap: () async {
-                Navigator.pop(ctx);
-                await _pickImage(ImageSource.camera);
-              },
-            ),
-            if (AvatarManager.hasCustomAvatar)
-              ListTile(
-                leading:
-                    const Icon(Icons.person_rounded, color: Color(0xFF94A3B8)),
-                title: Text('Varsayılana Dön',
-                    style: GoogleFonts.poppins(fontWeight: FontWeight.w600,
-                        color: const Color(0xFF94A3B8))),
-                onTap: () async {
-                  Navigator.pop(ctx);
-                  await AvatarManager.resetToDefault();
-                  if (mounted) setState(() {});
-                },
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Future<void> _pickImage(ImageSource source) async {
-    final picker = ImagePicker();
-    final XFile? image = await picker.pickImage(
-      source: source,
-      maxWidth: 512,
-      maxHeight: 512,
-      imageQuality: 85,
-    );
-    if (image == null) return;
-    final appDir = await getApplicationDocumentsDirectory();
-    final savedPath = '${appDir.path}/avatar.png';
-    await File(image.path).copy(savedPath);
-    await AvatarManager.setAvatar(savedPath);
-    if (mounted) setState(() {});
   }
 
   Future<void> _save() async {

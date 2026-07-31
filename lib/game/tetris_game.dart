@@ -518,9 +518,6 @@ class TetrisGame extends FlameGame
     final tap = info.eventPosition.global / uiScale;
     final bw = kCols * kCell;
     final bh = kRows * kCell;
-    final sh = _scoreBoxImage != null
-        ? (bw * 0.48) * (_scoreBoxImage!.height / _scoreBoxImage!.width)
-        : 52.0;
 
     if (paused && gameActive) {
       final p = Offset(tap.x, tap.y);
@@ -3388,73 +3385,6 @@ class TetrisGame extends FlameGame
         bold: true,
       );
     }
-  }
-
-  void _drawRightBox(
-    Canvas canvas,
-    double x,
-    double y,
-    double w,
-    double h,
-    String label,
-  ) {
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        Rect.fromLTWH(x, y, w, h),
-        const Radius.circular(10),
-      ),
-      Paint()..color = const Color(0xFF1E64C8).withValues(alpha: 0.68),
-    );
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        Rect.fromLTWH(x, y, w, h),
-        const Radius.circular(10),
-      ),
-      Paint()
-        ..color = const Color(0xFF4A9EFF).withValues(alpha: 0.72)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.5,
-    );
-    _drawTextCentered(
-      canvas,
-      label,
-      x + w / 2,
-      y + 14,
-      9,
-      Colors.white.withValues(alpha: 0.85),
-    );
-  }
-
-  double _getLevelProgress() {
-    final lv = level;
-    final cur = lv - 1 < kLevelScores.length ? kLevelScores[lv - 1] : 0;
-    final next = lv < kLevelScores.length
-        ? kLevelScores[lv]
-        : kLevelScores.last;
-    return ((score - cur) / (next - cur)).clamp(0.0, 1.0);
-  }
-
-  void _drawMiniTile(Canvas canvas, double x, double y, int val) {
-    final color = tileColor(val);
-    final rect = RRect.fromRectAndRadius(
-      Rect.fromLTWH(x, y, 18, 18),
-      const Radius.circular(4),
-    );
-    canvas.drawRRect(rect, Paint()..color = color);
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        Rect.fromLTWH(x + 1, y + 1, 16, 6),
-        const Radius.circular(3),
-      ),
-      Paint()..color = Colors.white.withValues(alpha: 0.32),
-    );
-    canvas.drawRRect(
-      rect,
-      Paint()
-        ..color = Colors.white.withValues(alpha: 0.18)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1,
-    );
   }
 
   void _drawVoltageZapLine(
