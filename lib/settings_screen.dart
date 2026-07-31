@@ -22,9 +22,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
   static const _langs = [
     ('en', '🇬🇧', 'English'),
     ('de', '🇩🇪', 'Deutsch'),
+    ('nl', '🇳🇱', 'Nederlands'),
     ('fr', '🇫🇷', 'Français'),
     ('it', '🇮🇹', 'Italiano'),
     ('pl', '🇵🇱', 'Polski'),
+    ('cs', '🇨🇿', 'Čeština'),
+    ('ro', '🇷🇴', 'Română'),
+    ('sv', '🇸🇪', 'Svenska'),
+    ('da', '🇩🇰', 'Dansk'),
+    ('no', '🇳🇴', 'Norsk'),
     ('es', '🇪🇸', 'Español'),
     ('pt', '🇧🇷', 'Português'),
     ('ru', '🇷🇺', 'Русский'),
@@ -32,6 +38,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
     ('ar', '🇸🇦', 'العربية'),
     ('th', '🇹🇭', 'ภาษาไทย'),
     ('id', '🇮🇩', 'Indonesia'),
+    ('ms', '🇲🇾', 'Bahasa Melayu'),
+    ('vi', '🇻🇳', 'Tiếng Việt'),
+    ('fil', '🇵🇭', 'Filipino'),
     ('ko', '🇰🇷', '한국어'),
     ('ja', '🇯🇵', '日本語'),
     ('zh', '🀄', '繁體中文'),
@@ -75,7 +84,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return match != null ? '${match.$2}  ${match.$3}' : L10n.lang;
   }
 
-  Widget _buildToggle(bool value, ValueChanged<bool> onChanged, double w, double h) {
+  Widget _buildToggle(
+    bool value,
+    ValueChanged<bool> onChanged,
+    double w,
+    double h,
+  ) {
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: () => onChanged(!value),
@@ -194,7 +208,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   color: Colors.white,
                   letterSpacing: 1.5,
                   shadows: const [
-                    Shadow(color: Colors.black54, blurRadius: 6, offset: Offset(0, 2)),
+                    Shadow(
+                      color: Colors.black54,
+                      blurRadius: 6,
+                      offset: Offset(0, 2),
+                    ),
                   ],
                 ),
               ),
@@ -203,7 +221,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
           // Toggle satırları — SES, MÜZİK, TİTREŞİM
           ..._buildToggleRow(
-            w: w, h: h,
+            w: w,
+            h: h,
             labelTop: h * 0.28,
             toggleTop: h * 0.245,
             label: L10n.t('sound'),
@@ -214,7 +233,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
             },
           ),
           ..._buildToggleRow(
-            w: w, h: h,
+            w: w,
+            h: h,
             labelTop: h * 0.385,
             toggleTop: h * 0.345,
             label: L10n.t('music'),
@@ -225,7 +245,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
             },
           ),
           ..._buildToggleRow(
-            w: w, h: h,
+            w: w,
+            h: h,
             labelTop: h * 0.49,
             toggleTop: h * 0.445,
             label: L10n.t('vibration'),
@@ -354,7 +375,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 // Tetikleyici buton
                 GestureDetector(
                   behavior: HitTestBehavior.opaque,
-                  onTap: () => setState(() => _langDropdownOpen = !_langDropdownOpen),
+                  onTap: () =>
+                      setState(() => _langDropdownOpen = !_langDropdownOpen),
                   child: Container(
                     height: h * 0.048,
                     padding: EdgeInsets.symmetric(horizontal: w * 0.032),
