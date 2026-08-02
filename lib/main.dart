@@ -1,5 +1,8 @@
+import 'dart:io' show Platform;
+
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'achievement_manager.dart';
@@ -34,10 +37,13 @@ void main() async {
   runApp(const MyApp());
 }
 
-// Firebase henüz kurulmamışsa (google-services.json / GoogleService-Info.plist
-// eksikse) initializeApp hata fırlatır — leaderboard dışındaki tüm oyun
-// bundan etkilenmemeli, bu yüzden sessizce yakalanır.
+// Firebase yalnızca Android/iOS derlemelerinde denenir — masaüstü/web
+// hedeflerinde (ör. macOS'ta linker sorunu) google-services.json /
+// GoogleService-Info.plist bulunmadığından hiç çağrılmaz. Mobilde de
+// kurulum eksikse initializeApp hata fırlatır — leaderboard dışındaki
+// tüm oyun bundan etkilenmemeli, bu yüzden sessizce yakalanır.
 Future<void> _initFirebase() async {
+  if (kIsWeb || !(Platform.isAndroid || Platform.isIOS)) return;
   try {
     await Firebase.initializeApp();
     // Anonim auth — kullanıcı giriş yapmadan skor gönderebilsin.

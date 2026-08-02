@@ -2,6 +2,7 @@ import 'dart:math';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'avatar_manager.dart';
@@ -84,8 +85,9 @@ class LeaderboardManager {
         'weekId': weekId,
         'updatedAt': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
-    } catch (_) {
+    } catch (e) {
       // Bağlantı yok / Firebase kurulu değil — sessizce geç.
+      debugPrint('submitScore hatası: $e');
     }
   }
 

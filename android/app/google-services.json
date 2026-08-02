@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "367018151965",
+    "project_id": "tetris2048",
+    "storage_bucket": "tetris2048.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:367018151965:android:2b5fa49c9c5f62a63576f4",
+        "android_client_info": {
+          "package_name": "com.ibovibo.tetris2048"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCfPgzeu_6LM9-3NPDHFKTQtKmTGUf_tNU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

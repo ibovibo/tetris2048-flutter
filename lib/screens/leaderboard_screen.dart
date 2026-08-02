@@ -57,7 +57,10 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
         _entries = result;
         _loading = false;
       });
-    } catch (_) {
+    } catch (e) {
+      // Firestore composite index eksikse buraya konsola tıklanabilir bir
+      // "index oluştur" linki basar — o linke tıklayıp index'i oluşturman gerekir.
+      debugPrint('Leaderboard fetch hatası: $e');
       if (!mounted) return;
       setState(() {
         _error = true;
