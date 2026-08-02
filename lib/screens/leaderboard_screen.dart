@@ -76,6 +76,9 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
   }
 
   String _fmtScore(int v) {
+    if (v >= 1000000) {
+      return '${(v / 1000000).toStringAsFixed(2)}M';
+    }
     final s = v.toString();
     final buf = StringBuffer();
     for (int i = 0; i < s.length; i++) {
@@ -111,6 +114,9 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
     final listTop = h * 0.305;
     final listBottomInset = navReserve > h * 0.055 ? navReserve : h * 0.055;
     final rowH = h * 0.078;
+    // Sıralar arası boşluk — öğelerin (rank/avatar/isim/skor) boyutundan
+    // bağımsız, sadece satırların birbirine oturmasını ayarlar.
+    final rowGap = h * 0.076;
 
     return Scaffold(
       backgroundColor: Colors.black,
@@ -152,7 +158,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
             left: w * 0.08,
             right: w * 0.08,
             bottom: listBottomInset,
-            child: _buildListBody(w, rowH, myUid),
+            child: _buildListBody(w, rowH, rowGap, myUid),
           ),
 
           // ── Geri butonu ───────────────────────────────────────────────
@@ -239,7 +245,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
     );
   }
 
-  Widget _buildListBody(double w, double rowH, String? myUid) {
+  Widget _buildListBody(double w, double rowH, double rowGap, String? myUid) {
     if (_loading) {
       return const Center(
         child: CircularProgressIndicator(color: _navyBlue),
@@ -310,7 +316,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
         itemBuilder: (context, i) {
           final e = _entries[i];
           return SizedBox(
-            height: rowH,
+            height: rowGap,
             child: _buildRow(e, w, rowH, isMe: e.uid == myUid && myUid != null),
           );
         },
@@ -319,7 +325,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
   }
 
   Widget _buildRow(LeaderboardEntry e, double w, double rowH, {required bool isMe}) {
-    final avatarSize = w * 0.11;
+    final avatarSize = w * 0.13;
     return Container(
       decoration: isMe
           ? BoxDecoration(
@@ -336,16 +342,19 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
               '#${e.rank}',
               textScaler: TextScaler.noScaling,
               style: GoogleFonts.poppins(
-                fontSize: rowH * 0.32,
+                fontSize: rowH * 0.26,
                 fontWeight: FontWeight.w800,
                 color: _rankColor(e.rank),
               ),
             ),
           ),
-          SizedBox(
-            width: avatarSize,
-            height: avatarSize,
-            child: AvatarDisplay(size: avatarSize, avatarIndex: e.avatarIndex),
+          Transform.translate(
+            offset: Offset(-w * 0.03, 0),
+            child: SizedBox(
+              width: avatarSize,
+              height: avatarSize,
+              child: AvatarDisplay(size: avatarSize, avatarIndex: e.avatarIndex),
+            ),
           ),
           SizedBox(width: w * 0.03),
           Expanded(
@@ -361,13 +370,20 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
               ),
             ),
           ),
-          Text(
-            _fmtScore(e.score),
-            textScaler: TextScaler.noScaling,
-            style: GoogleFonts.poppins(
-              fontSize: rowH * 0.30,
-              fontWeight: FontWeight.w800,
-              color: _navyBlue,
+          Container(
+            padding: EdgeInsets.symmetric(horizontal: w * 0.02, vertical: rowH * 0.08),
+            decoration: BoxDecoration(
+              color: _navyBlue.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text(
+              _fmtScore(e.score),
+              textScaler: TextScaler.noScaling,
+              style: GoogleFonts.poppins(
+                fontSize: rowH * 0.30,
+                fontWeight: FontWeight.w800,
+                color: _navyBlue,
+              ),
             ),
           ),
         ],
